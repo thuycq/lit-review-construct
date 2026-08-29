@@ -1,0 +1,6 @@
+description = "Show the current Literature Review Construct project status in researcher-friendly language"
+prompt = """
+If `.litreview/project.yaml` is absent, say that the current folder is not yet a Literature Review Construct project and suggest `/lr` to start one.
+
+If it exists, run `lrc next . --json` and summarize only the current research stage, what has already been completed, what remains, and whether a genuine researcher decision is required. Do not show raw JSON, CLI commands, internal IDs, file line numbers, or provider/test diagnostics.
+"""
