@@ -78,7 +78,7 @@ def scan_seed_papers(root: Path, source: Path | None = None) -> dict[str, object
     root = root.expanduser().resolve()
     _load_project(root)
     state_root = root / PROJECT_DIR
-    source_dir = (source.expanduser().resolve() if source else root / "papers")
+    source_dir = source.expanduser().resolve() if source else root / "papers"
     if not source_dir.is_dir():
         raise FileNotFoundError(f"Paper folder not found: {source_dir}")
 
@@ -144,19 +144,23 @@ def scan_seed_papers(root: Path, source: Path | None = None) -> dict[str, object
         inventory_lines.append(
             f"| {title} | {record['location_type']} | {record['parse_status']} | {record['status']} |"
         )
-    inventory_lines.extend([
-        "",
-        "> User-provided papers are seed literature. They are not automatically treated as final relevant literature.",
-        "",
-    ])
+    inventory_lines.extend(
+        [
+            "",
+            "> User-provided papers are seed literature. They are not automatically treated as final relevant literature.",
+            "",
+        ]
+    )
     _atomic_write_text(root / "outputs" / "02_seed_inventory.md", "\n".join(inventory_lines))
 
     state_file = state_root / "state.json"
     state = json.loads(state_file.read_text(encoding="utf-8"))
-    state["current_stage"] = "seed_literature"
-    state["stages"]["research_intent"]["status"] = "ready_for_review"
     state["stages"]["seed_literature"]["status"] = "in_progress"
     state["stages"]["seed_literature"]["revision"] += 1
+    # Seed papers may be supplied while Research Intent is still being refined.
+    # Do not implicitly complete or replace the current stage here.
+    if state["stages"]["research_intent"]["status"] in {"accepted", "ready_for_review"}:
+        state["current_stage"] = "seed_literature"
     _write_json(state_file, state)
 
     activity_file = state_root / "activity" / "activity.jsonl"
