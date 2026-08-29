@@ -24,11 +24,13 @@ def suggested_user_message(result: Mapping[str, object]) -> str:
         "prepare_narrowing_review": "Build the updated narrowing map from the papers filtered so far and show me the next options.",
         "prepare_final_landscape": "Build the current Research Landscape from the retained literature.",
         "construct_current_research_landscape": "Build the current Research Landscape from the retained literature.",
+        "resolve_priority_full_text": "Find and acquire lawful open-access full text for the priority papers, then continue to the Evidence Map.",
         "construct_evidence_map": "Construct the Evidence Map using the current Research Landscape and verified source basis.",
         "propose_research_directions": "Propose candidate Research Directions from the current Landscape and Evidence Map, then stop for my choice.",
         "researcher_direction_decision": "Show me the candidate Research Directions and recommend which ones are most defensible, but let me decide.",
         "construct_literature_review_blueprint": "Construct the Literature Review Blueprint for the selected Research Direction.",
         "researcher_blueprint_review": "Show me the Literature Review Blueprint and the main decisions I should review before accepting it.",
-        "researcher_handoff": "Show me the researcher handoff and the optional AI-use statement based only on recorded project activity.",
+        "construct_working_draft": "Construct the researcher working draft from the accepted Blueprint, preserving evidence anchors and verification warnings.",
+        "researcher_handoff": "Show me the researcher working draft, remaining verification tasks, Word export options, and the optional AI-use statement.",
     }
     return suggestions.get(action, "Continue with the recommended next step from the saved project state.")
