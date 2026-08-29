@@ -38,9 +38,11 @@ if ($LASTEXITCODE -ne 0) { throw "Lit Review Construct runtime installation fail
 $CodexHome = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $HOME ".codex" }
 $CodexSkills = Join-Path $CodexHome "skills"
 $OpenCodeSkills = Join-Path $HOME ".config\opencode\skills"
+$OpenCodeCommands = Join-Path $HOME ".config\opencode\commands"
 
 New-Item -ItemType Directory -Force -Path $CodexSkills | Out-Null
 New-Item -ItemType Directory -Force -Path $OpenCodeSkills | Out-Null
+New-Item -ItemType Directory -Force -Path $OpenCodeCommands | Out-Null
 
 $CanonicalSkills = Join-Path $RepoRoot "skills"
 if (Test-Path $CanonicalSkills) {
@@ -54,6 +56,13 @@ if (Test-Path $CanonicalSkills) {
 
         Copy-Item -Recurse -Force $_.FullName $codexTarget
         Copy-Item -Recurse -Force $_.FullName $openCodeTarget
+    }
+}
+
+$CanonicalOpenCodeCommands = Join-Path $RepoRoot "commands\opencode"
+if (Test-Path $CanonicalOpenCodeCommands) {
+    Get-ChildItem -Path $CanonicalOpenCodeCommands -Filter "*.md" -File | ForEach-Object {
+        Copy-Item -Force $_.FullName (Join-Path $OpenCodeCommands $_.Name)
     }
 }
 
@@ -81,13 +90,15 @@ $Manifest = @{
     python = "3.12"
     codex_skills = $CodexSkills
     opencode_skills = $OpenCodeSkills
+    opencode_commands = $OpenCodeCommands
 }
 $Manifest | ConvertTo-Json | Set-Content -Encoding UTF8 (Join-Path $InstallRoot "install-manifest.json")
 
 Write-Host ""
-Write-Host "Installed Lit Review Construct core and host skills."
+Write-Host "Installed Lit Review Construct core and host adapters."
 Write-Host "Codex skills: $CodexSkills"
 Write-Host "OpenCode skills: $OpenCodeSkills"
+Write-Host "OpenCode commands: $OpenCodeCommands"
 if ($ResolvedPath) {
     Write-Host "Resolved lrc: $ResolvedPath"
     Write-Host "Installed runtime: $InstalledVersion"
