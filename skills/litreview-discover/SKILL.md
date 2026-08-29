@@ -1,6 +1,6 @@
 ---
 name: litreview-discover
-description: Discover additional literature and construct a Research Landscape for an accepted Lit Review Construct Research Intent. Use when the researcher wants to expand beyond seed papers, find recent or influential studies, explore search concepts, identify anchor papers, organize research streams, or synthesize the literature landscape.
+description: Run iterative multi-source literature discovery for an accepted Lit Review Construct Research Intent. Use when the researcher wants to build a broad literature universe, inspect provisional research streams, decide whether to continue collecting, narrow to selected themes, or change the research scope before constructing a defensible Research Landscape.
 license: MIT
 compatibility: Codex and OpenCode
 metadata:
@@ -8,73 +8,133 @@ metadata:
   stage: literature-discovery
 ---
 
-# Lit Review Construct — Literature Discovery and Research Landscape
+# Lit Review Construct — Iterative Multi-Source Literature Discovery
 
 Use this skill after the Research Intent has been accepted.
 
 ## Product boundary
 
-This is narrative-review discovery support. Do not claim exhaustive retrieval, systematic-review completeness, PRISMA compliance, or formal screening completeness. Do not write a complete final literature review.
+The purpose of this stage is to build a sufficiently broad literature universe for a narrative review before making strong research-gap claims. Do not claim exhaustive retrieval, systematic-review completeness, PRISMA compliance, or formal screening completeness. Do not write a complete final literature review.
 
 ## Runtime rules
 
 - Use the globally installed `lrc` runtime.
 - Project state is authoritative; do not rely on conversation memory for scope.
-- Never store API keys inside the research workspace.
-- If `OPENALEX_API_KEY` exists in the environment, the runtime may use it. A key is optional.
+- Never store API credentials inside the research workspace.
+- Supported first-version discovery providers are **OpenAlex, Crossref, and Semantic Scholar**.
+- Optional provider configuration is global/environmental: `OPENALEX_API_KEY`, `CROSSREF_MAILTO`, and `SEMANTIC_SCHOLAR_API_KEY`.
 - Do not create a project-local Python environment.
 
-## Discovery workflow
+## Core discovery model
+
+Discovery is an **iterative funnel**, not a one-shot search:
+
+**Broad retrieval → normalization/deduplication → exploratory synthesis → researcher checkpoint → broader/focused retrieval → repeated filtering → final discovery acceptance → Research Landscape → Evidence Map → Research Direction.**
+
+A broad topic may legitimately produce hundreds or thousands of metadata records. Do not reduce the search universe to a few papers merely to fit model context. The runtime stores the large universe locally and prepares bounded representative packets for AI analysis.
+
+## Starting a campaign
 
 1. Run `lrc intent show . --json` and verify the Research Intent is accepted.
-2. Inspect the seed inventory and paper metadata if seed literature exists.
-3. Design several focused search concepts rather than one giant query. Search concepts should reflect the research topic/question, important constructs, common synonyms, theories, methods, contexts, or terminology visible in seed papers when useful.
-4. Explain search concepts briefly only when they materially affect scope. Routine wording variations do not require a checkpoint.
-5. Execute focused queries using `lrc search openalex . --query "<query>" --limit <n>`.
-6. Search results are automatically constrained to the accepted Publication period. Paper-language scope is enforced before import.
-7. The runtime records every search under `.litreview/searches/`, imports new metadata into `.litreview/data/papers.jsonl`, and rebuilds duplicate/version relation candidates.
-8. Use `lrc search history . --json` when you need to understand what has already been searched.
-9. Do not treat every imported result as relevant. Imported OpenAlex records begin as unresolved literature candidates.
-10. Prefer multiple complementary searches that improve conceptual coverage while keeping each query interpretable.
+2. Inspect seed papers when available. Seed papers can supply terminology but are not automatically relevant.
+3. Run `lrc discover start .`.
+4. Design several interpretable **query families**, not one giant query. Cover direct constructs, synonyms, established terminology, theories/mechanisms, contexts, and methodological terms when appropriate.
+5. For the first broad iteration, normally use all three providers. Example:
 
-## Research Landscape workflow
+   `lrc discover run . -q "working capital firm performance" -q "working capital management profitability" -q "cash conversion cycle firm performance" --max-per-query-provider 300`
 
-After the discovery pool is adequate for an initial narrative landscape:
+The runtime retrieves metadata from OpenAlex, Crossref, and Semantic Scholar, merges strong identifier matches, enriches existing records, preserves unresolved bibliographic relations, and records every provider/query run.
 
-1. Run `lrc landscape prepare . --json`.
-2. Read the generated `.litreview/packets/landscape.json`. Treat this bounded packet as the primary context for landscape synthesis instead of loading the entire corpus.
-3. Analyze the packet using multiple signals. Citation count is only one signal. Consider topical relevance to the accepted Research Intent, seed-paper importance, recency, theoretical or methodological role, publication context, and the available abstract/metadata evidence.
-4. Select a **small and useful** set of anchor papers rather than labeling every plausible paper as an anchor.
-5. Organize the literature into meaningful research streams. Streams should reflect substantive theories, mechanisms, debates, methodological traditions, contexts, or other research structures that help the researcher understand the field.
-6. Surface major debates, contradictory positions, methodological clusters, recent developments, and unresolved questions.
-7. Preserve `paper_id` values exactly so all synthesis remains traceable to project records.
-8. Do not invent substantive findings from metadata alone. When an abstract supports only a broad topic or association, state only that level of certainty. Detailed findings will be verified in the Evidence Mapping stage.
-9. Write the structured landscape submission as JSON following `expected_output_schema` from the packet. A convenient temporary location is `.litreview/packets/landscape_submission.json`.
-10. Persist and validate it with:
+## Broad retrieval principles
 
-   `lrc landscape save . --input .litreview/packets/landscape_submission.json`
+- Prefer recall early. A broad finance topic may produce hundreds or thousands of records.
+- Do not treat retrieval rank, citation count, or provider presence as a relevance decision.
+- Do not load the entire retrieved universe into model context.
+- Keep papers `unresolved` until later relevance triage.
+- Language metadata can be absent in some providers. Unknown-language records may be retained for later triage rather than silently discarded.
+- Provider overlap is useful corroboration but not evidence of substantive relevance.
 
-11. Inspect `outputs/03_research_landscape.md` and present the researcher with the **landscape**, not a wall of individual search results.
+## Exploratory review checkpoint
 
-The saved Research Landscape is marked `ready_for_review`. No artificial mandatory approval checkpoint is required here; the researcher may comment on or redirect the landscape before Evidence Mapping. The major mandatory human checkpoint remains Research Direction later in the workflow.
+After one or more broad iterations:
 
-## Search strategy guidance
+1. Run `lrc discover prepare-review . --json`.
+2. Read `.litreview/packets/discovery_review.json`.
+3. Analyze the bounded representative packet and the campaign-level coverage summary.
+4. Produce only an **exploratory map**:
+   - provisional research streams;
+   - indicative terminology;
+   - provisional questions;
+   - candidate focus areas;
+   - suggested next queries;
+   - coverage weaknesses/noise;
+   - whether another discovery iteration is useful.
+5. Do **not** call these final research gaps or final novelty claims.
+6. Save the structured review using the packet schema, for example:
 
-Useful query families may include:
+   `lrc discover save-review . --input .litreview/packets/discovery_review_submission.json`
 
-- direct topic/construct combinations;
-- theory terminology;
-- established terminology found in anchor or seed papers;
-- methodological terminology when methodology is central to the research question;
-- context-specific combinations;
-- recent-development terminology.
+7. Stop and ask the researcher to choose one of four actions:
+   - **continue** — keep broadening the literature universe;
+   - **focus** — continue discovery around one or more selected streams/focuses;
+   - **change_scope** — return to Research Intent and revise the topic/question/scope;
+   - **finish** — the researcher judges discovery sufficient for the current narrative-review purpose.
 
-Avoid using citation count as the only definition of importance.
+Never choose this action for the researcher.
+
+## Recording the researcher decision
+
+Examples:
+
+- Continue broadly:
+  `lrc discover decide . --action continue`
+
+- Focus subsequent discovery:
+  `lrc discover decide . --action focus --focus "Nonlinear working-capital optimization"`
+
+- Request a scope change:
+  `lrc discover decide . --action change_scope --notes "Shift toward SMEs in emerging markets"`
+
+- Finish discovery for the current narrative review:
+  `lrc discover decide . --action finish`
+
+Use `lrc discover status .` to inspect iterations, providers, query-family count, indexed corpus size, checkpoints, selected focuses, and coverage warnings.
+
+## Focused iterations
+
+When the researcher selects one or more focuses:
+
+1. Use the selected focus and the previous review's `query_suggestions` to build new query families.
+2. Run another iteration with `--phase focused`.
+3. Continue using multiple providers unless there is a clear provider-specific reason not to.
+4. Re-run `prepare-review` and present the updated provisional structure.
+5. Repeat the researcher checkpoint.
+
+Later focused iterations should add citation/reference/related-paper expansion around important papers. Do not treat citation chaining as a substitute for keyword/concept search; it is a complementary route into the literature network.
+
+## When discovery is sufficient
+
+There is **no universal paper-count threshold**. A niche topic and a broad topic require different corpus sizes. The runtime may warn when only one provider/query family has been used or when the corpus is very small, but the final sufficiency decision belongs to the researcher.
+
+For a defensible gap claim, prefer evidence that discovery has:
+
+- used multiple query families;
+- used multiple scholarly providers;
+- gone through at least one researcher review checkpoint;
+- explored the most important provisional streams;
+- used focused follow-up searches where needed;
+- later verified important claims against fuller source evidence.
+
+Only after the researcher explicitly finishes the discovery campaign should the toolkit treat downstream Research Landscape, Evidence Map, and Research Direction as final-current rather than provisional/test artifacts.
+
+## Research Landscape after discovery
+
+After discovery is finished, construct/refresh the Research Landscape from the selected and triaged corpus using `lrc landscape prepare`. The Landscape should identify a small set of anchors and meaningful streams without pretending that every retrieved record was deeply read.
 
 ## Evidence discipline
 
-OpenAlex metadata is discovery evidence, not proof of a paper's substantive finding. Keep discovery-level synthesis distinct from later source-verified Evidence Mapping. Important statements should preserve epistemic provenance: source-reported content, metadata/abstract-supported observation, AI synthesis, or AI inference.
+Provider metadata and abstracts are **discovery evidence**, not proof of detailed substantive findings. Do not infer causal results, methods, limitations, or research gaps from titles/metadata. Preserve provenance and defer detailed verification to Evidence Mapping/full text.
 
 ## Context discipline
 
-Use metadata and abstracts first. Do not automatically inject every discovered paper or full PDF into context. The `landscape prepare` command intentionally creates a bounded, diverse packet. Selectively load anchor papers and source evidence only when later stages require them.
+The large discovery universe stays local in `.litreview/data/papers.jsonl`. AI receives bounded representative packets. Use metadata/abstracts for broad orientation, then selectively load core/full-text papers when the task genuinely requires them.
