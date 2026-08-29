@@ -20,7 +20,7 @@ STAGES = [
     "researcher_handoff",
 ]
 
-AGENTS_TEXT = """# Lit Review Construct Project\n\nThis folder is a Lit Review Construct research workspace.\n\n## North-star objective\n\nHelp the researcher construct the literature behind a study: define the literature scope, discover sufficiently broad scholarship before narrowing, understand the research landscape, organize source-disciplined evidence, reason about defensible research directions, and construct a Literature Review Blueprint that the researcher can use to write the final review. Do not turn the project into a generic academic search exercise or replace the researcher as author.\n\n## Project rules\n\n- Treat `.litreview/` as the authoritative project state. Conversation history is not the project database.\n- For an unspecified request to continue/resume/proceed, run `lrc next . --json` and follow the routed Lit Review Construct skill rather than guessing the next stage.\n- Stop whenever `lrc next` says `human_checkpoint_required: true`; do not make researcher decisions silently.\n- Use the globally installed `lrc` runtime for structured project operations when available.\n- Do not create a project-local Python environment (`.venv`, `venv`) just to run Lit Review Construct. If `lrc` is missing or outdated, update/reinstall the toolkit from its installation repository instead.\n- Preserve source, search, evidence, AI-synthesis, and researcher-judgment provenance.\n- Persist important research decisions and outputs locally rather than relying on conversation history.\n- Keep large literature corpora local and use bounded packets for model context.\n- AI may assist with search planning, literature discovery, triage, synthesis, evidence organization, research-direction reasoning, and literature-review architecture.\n- Treat gap and novelty suggestions as provisional until supported by adequate discovery coverage and source verification.\n- The principal construction output is the Literature Review Blueprint.\n- Do not generate a complete final literature review intended for direct submission. The researcher remains responsible for scholarly judgment, verification, authorship, final prose, citation selection, accuracy, and research integrity.\n"""
+AGENTS_TEXT = """# Lit Review Construct Project\n\nThis folder is a Lit Review Construct research workspace. The presence of `.litreview/project.yaml` is the activation gate for the globally installed toolkit. Do not activate Lit Review Construct automatically in unrelated workspaces.\n\n## North-star objective\n\nHelp the researcher construct the literature behind a study: define the literature scope, discover sufficiently broad scholarship before narrowing, understand the research landscape, organize source-disciplined evidence, reason about defensible research directions, and construct a Literature Review Blueprint plus bounded researcher working fragments. Do not turn the project into a generic academic search exercise or replace the researcher as author.\n\n## Project rules\n\n- Treat `.litreview/` as the authoritative machine state. Conversation history is not the project database.\n- For an unspecified request to continue/resume/proceed, run `lrc next . --json` and follow the routed Lit Review Construct skill rather than guessing the next stage.\n- Stop only for genuine researcher decisions when `human_checkpoint_required: true`; technical batching, deduplication, progressive triage, citation chaining, OA resolution, consistency QA, packaging, and formatting should proceed without manufacturing extra human checkpoints.\n- Use researcher-facing language by default. Do not dump JSON, CLI commands, internal IDs, file line numbers, provider logs, or test diagnostics unless the researcher explicitly asks for debug/developer detail.\n- When the researcher asks to show an artifact, show the artifact or its substantive content first rather than a technical report describing the file.\n- Preserve source, search, evidence, AI-synthesis, and researcher-judgment provenance.\n- Persist important research decisions and outputs locally rather than relying on conversation history.\n- Keep large literature corpora local and use bounded packets for model context.\n- Narrative-review triage is progressive rather than exhaustive. Do not require screening every indexed record before moving forward.\n- AI may assist with search planning, literature discovery, triage, synthesis, evidence organization, research-direction reasoning, literature-review architecture, and bounded draft fragments.\n- Treat gap and novelty suggestions as corpus-bounded and provisional until supported by adequate discovery coverage and source verification.\n- Keep evidence states distinct: full text available, AI checked against full text, and researcher verified are not synonyms. Never mark researcher verification unless the researcher explicitly records it.\n- The principal construction output is the Literature Review Blueprint; the Working Draft remains a researcher-editable scaffold, not a final literature review.\n- Do not generate a complete final literature review intended for direct submission. The researcher remains responsible for scholarly judgment, verification, authorship, final prose, citation selection, accuracy, and research integrity.\n\n## Researcher-facing workspace\n\n- `papers/full_text/`: lawful OA PDFs acquired by the toolkit, named from DOI where available.\n- `papers/abstract_only/`: working references without local full text; these remain provisional.\n- `papers/user_uploads/`: researcher drop zone; user files are not renamed or moved automatically.\n- `references/`: canonical reference exports, including EndNote `.enw`.\n- `outputs/`: researcher-facing research artifacts and Word handoff.\n- `.litreview/`: machine state/cache; researchers should not need to browse this folder for normal use.\n"""
 
 
 def _now() -> str:
@@ -49,6 +49,15 @@ def init_project(root: Path, name: str | None = None) -> dict[str, object]:
     project_file = state_root / "project.yaml"
 
     if project_file.exists():
+        # Beta upgrades are idempotent: make sure researcher-facing folders exist even for older projects.
+        for relative in [
+            "papers/full_text",
+            "papers/abstract_only",
+            "papers/user_uploads",
+            "references",
+            "outputs",
+        ]:
+            (root / relative).mkdir(parents=True, exist_ok=True)
         return {"created": False, "root": str(root), "message": "Project already initialized."}
 
     now = _now()
@@ -64,8 +73,14 @@ def init_project(root: Path, name: str | None = None) -> dict[str, object]:
     ]:
         (state_root / relative).mkdir(parents=True, exist_ok=True)
 
-    (root / "papers").mkdir(exist_ok=True)
-    (root / "outputs").mkdir(exist_ok=True)
+    for relative in [
+        "papers/full_text",
+        "papers/abstract_only",
+        "papers/user_uploads",
+        "references",
+        "outputs",
+    ]:
+        (root / relative).mkdir(parents=True, exist_ok=True)
 
     project = {
         "schema_version": SCHEMA_VERSION,
@@ -80,7 +95,7 @@ def init_project(root: Path, name: str | None = None) -> dict[str, object]:
             "publication_period": {"from": None, "to": None},
             "languages": [],
         },
-        "paper_sources": [{"type": "project_folder", "path": "papers"}],
+        "paper_sources": [{"type": "researcher_drop_zone", "path": "papers/user_uploads"}],
         "external_paper_folders": [],
         "hosts_seen": [],
     }
@@ -109,6 +124,10 @@ def init_project(root: Path, name: str | None = None) -> dict[str, object]:
             ".litreview/project.yaml",
             ".litreview/state.json",
             "AGENTS.md",
+            "papers/full_text/",
+            "papers/abstract_only/",
+            "papers/user_uploads/",
+            "references/",
         ],
         "source_ids": [],
         "notes": None,
@@ -162,6 +181,10 @@ def doctor(root: Path) -> dict[str, object]:
     checks.append({"name": "project.yaml", "ok": project_file.exists()})
     checks.append({"name": "state.json", "ok": state_file.exists()})
     checks.append({"name": "outputs directory", "ok": (root / "outputs").is_dir()})
+    checks.append({"name": "papers/full_text directory", "ok": (root / "papers" / "full_text").is_dir()})
+    checks.append({"name": "papers/abstract_only directory", "ok": (root / "papers" / "abstract_only").is_dir()})
+    checks.append({"name": "papers/user_uploads directory", "ok": (root / "papers" / "user_uploads").is_dir()})
+    checks.append({"name": "references directory", "ok": (root / "references").is_dir()})
 
     if project_file.exists():
         try:
