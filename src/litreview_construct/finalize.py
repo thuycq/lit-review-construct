@@ -9,6 +9,7 @@ from uuid import uuid4
 import yaml
 
 from .project import PROJECT_DIR, _write_json
+from .search_provenance import provider_query_coverage, query_coverage
 
 RETAINED_LABELS = {"relevant", "background", "adjacent"}
 
@@ -85,6 +86,7 @@ def _paper_packet(row: dict[str, object], abstract_chars: int) -> dict[str, obje
         "abstract": abstract,
         "source_origin": row.get("source_origin"),
         "discovery_sources": row.get("discovery_sources") or [row.get("source_origin")],
+        "discovery_hits": row.get("discovery_hits") or [],
         "triage_label": row.get("triage_label"),
         "triage_priority": row.get("triage_priority"),
         "triage_rationale": row.get("triage_rationale"),
@@ -135,10 +137,10 @@ def prepare_final_landscape_packet(
     unresolved = sum(row.get("triage_label") == "unresolved" for row in triaged)
     out_scope = sum(row.get("triage_label") == "out_of_scope" for row in triaged)
     label_counts = Counter(str(row.get("triage_label")) for row in triaged)
-    graph_edges = _load_jsonl(root / PROJECT_DIR / "data" / "paper_graph.jsonl")
+    all_graph_edges = _load_jsonl(root / PROJECT_DIR / "data" / "paper_graph.jsonl")
     graph_edges = [
         edge
-        for edge in graph_edges
+        for edge in all_graph_edges
         if str(edge.get("source_paper_id")) in selected_ids
         and str(edge.get("target_paper_id")) in selected_ids
     ]
@@ -162,7 +164,7 @@ def prepare_final_landscape_packet(
 
     packet = {
         "packet_type": "research_landscape",
-        "packet_schema_version": 2,
+        "packet_schema_version": 3,
         "packet_id": str(uuid4()),
         "created_at": _now(),
         "research_intent": project.get("research") or {},
@@ -180,7 +182,9 @@ def prepare_final_landscape_packet(
             "out_of_scope_excluded": out_scope,
             "unresolved_excluded": unresolved,
             "untriaged_records": untriaged,
-            "graph_edges_total": len(_load_jsonl(root / PROJECT_DIR / "data" / "paper_graph.jsonl")),
+            "graph_edges_total": len(all_graph_edges),
+            "query_coverage": query_coverage(records),
+            "provider_query_coverage": provider_query_coverage(records),
             "warnings": warnings,
         },
         "papers": [_paper_packet(row, abstract_chars) for row in selected],
@@ -196,11 +200,13 @@ def prepare_final_landscape_packet(
                 "preserve paper_id references for traceability",
                 "distinguish abstract-supported observations from AI synthesis/inference",
                 "carry discovery warnings forward when coverage remains incomplete",
+                "preserve query/provider retrieval provenance for auditability",
             ],
             "prohibited": [
                 "reintroducing out-of-scope papers as substantive landscape evidence",
                 "claiming systematic-review completeness",
                 "treating citation count as the sole importance criterion",
+                "treating retrieval frequency or query-hit count as a relevance score",
                 "inventing findings not supported by available content",
                 "declaring a definitive research gap solely from this bounded packet",
                 "writing a complete final literature review",
