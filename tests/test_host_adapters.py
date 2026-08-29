@@ -22,7 +22,8 @@ def test_installers_cover_supported_host_skill_roots() -> None:
     mac = (ROOT / "install.sh").read_text(encoding="utf-8")
 
     windows_markers = [
-        ".codex\\skills",
+        '$CodexHome = if ($env:CODEX_HOME)',
+        'Join-Path $CodexHome "skills"',
         ".config\\opencode\\skills",
         ".claude\\skills",
         ".agents\\skills",
