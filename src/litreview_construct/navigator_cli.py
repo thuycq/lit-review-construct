@@ -7,6 +7,7 @@ import typer
 
 from .main_cli import discover_app
 from .navigator import discovery_next_step
+from .ux import suggested_user_message
 
 
 @discover_app.command("next")
@@ -19,6 +20,7 @@ def discover_next(
     except (FileNotFoundError, ValueError) as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=1) from exc
+    result["suggested_user_message"] = suggested_user_message(result)
     if json_output:
         typer.echo(json.dumps(result, ensure_ascii=False))
         return
@@ -33,3 +35,4 @@ def discover_next(
         typer.echo("Runtime action(s):")
         for command in result["commands"]:
             typer.echo(f"  {command}")
+    typer.echo(f"Suggested next message: {result['suggested_user_message']}")
