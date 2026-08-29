@@ -8,6 +8,7 @@ import typer
 from . import cli as core_cli
 from .direction import prepare_direction_packet as _prepare_direction_packet
 from .finalize import prepare_final_landscape_packet
+from .fulltext import full_text_status, reconcile_full_text_links
 from .landscape import prepare_landscape_packet as _prepare_legacy_landscape_packet
 from .main_cli import app, discover_app
 from .project import PROJECT_DIR
@@ -102,3 +103,52 @@ def discover_prepare_landscape(
         for warning in result["warnings"]:
             typer.echo(f"  - {warning}")
     typer.echo(f"Landscape packet: {result['packet_file']}")
+
+
+fulltext_app = typer.Typer(
+    help="Inspect and reconcile local full text with discovered scholarly records."
+)
+app.add_typer(fulltext_app, name="fulltext")
+
+
+@fulltext_app.command("reconcile")
+def fulltext_reconcile(
+    path: Path = typer.Argument(Path("."), help="Research workspace folder."),
+    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
+) -> None:
+    try:
+        result = reconcile_full_text_links(path)
+    except FileNotFoundError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(json.dumps(result, ensure_ascii=False))
+        return
+    typer.echo(f"High-confidence same-work relations: {result['same_work_relations']}")
+    typer.echo(f"Full-text links added: {result['full_text_links_added']}")
+
+
+@fulltext_app.command("status")
+def fulltext_status_command(
+    path: Path = typer.Argument(Path("."), help="Research workspace folder."),
+    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
+) -> None:
+    try:
+        result = full_text_status(path)
+    except FileNotFoundError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(json.dumps(result, ensure_ascii=False))
+        return
+    typer.echo(f"Indexed records: {result['indexed_records']}")
+    typer.echo(f"Local full text available: {result['full_text_available']}")
+    typer.echo(f"Retained triaged records: {result['retained_triaged_records']}")
+    typer.echo(f"Retained papers missing full text: {result['retained_missing_full_text']}")
+    if result["priority_missing_full_text"]:
+        typer.echo("Priority papers needing full text:")
+        for row in result["priority_missing_full_text"][:20]:
+            typer.echo(
+                f"  - {row['title']} | id={row['paper_id']} | "
+                f"label={row['triage_label']} | priority={row['triage_priority']}"
+            )
