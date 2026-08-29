@@ -12,8 +12,9 @@ A beta tester should be able to:
 4. move through Research Intent → Discovery → Research Landscape → lawful OA coverage → Evidence Map → Research Direction → Blueprint → bounded Working Draft → researcher package;
 5. make scholarly decisions without being asked to approve routine technical operations;
 6. receive researcher-facing artifacts without reading CLI/JSON/internal IDs;
-7. find downloaded papers, abstract-only working references, EndNote import, and Word handoff in obvious project folders;
-8. retain clear source/evidence verification boundaries and final researcher authorship.
+7. find downloaded papers, abstract-only working references, EndNote import, and the Researcher Writing Pack in obvious project folders;
+8. use the Word Writing Pack to continue writing without needing to understand workflow internals;
+9. retain clear source/evidence verification boundaries and final researcher authorship.
 
 ## Benchmark findings incorporated
 
@@ -26,6 +27,21 @@ The benchmark repeatedly stopped for `refine` even after the researcher had alre
 Normal responses should hide implementation logs, JSON, CLI commands, UUIDs, internal paper IDs, line numbers and test details. A checkpoint should state what completed, what it means, the genuine scholarly choices, a recommendation, and exactly one natural-language Suggested next message.
 
 Artifact requests show substantive artifact content first rather than a developer report about the file.
+
+### Researcher Writing Pack
+
+The benchmark showed that a Word handoff can still be technically correct while being poor for an end user if it simply concatenates workflow artifacts and audit detail.
+
+Beta therefore exports `outputs/LitReview_Researcher_Writing_Pack.docx` as a **writing aid**, not an audit report. It contains only what a researcher needs to finish the literature review:
+
+1. research focus and selected direction;
+2. accepted literature-review structure and section purposes;
+3. actual Working Draft fragments;
+4. researcher tasks/decisions and source-verification checklist;
+5. cross-section/final writing checklist;
+6. working references and pointers to EndNote/paper folders.
+
+The Word pack must not expose paper/evidence IDs, `.litreview` state paths, provider logs, test output, JSON fields, technical provenance, or the optional AI-use statement. Those remain separate for audit/debug use.
 
 ### Evidence-state safety
 
@@ -114,6 +130,8 @@ Prioritize behavioral findings rather than low-level logs:
 - Did any output misuse “verified”?
 - Were downloaded PDFs easy to find and sensibly named?
 - Did `references_used.enw` import correctly into EndNote?
+- Could the researcher use the Word Writing Pack to continue writing without understanding LRC internals?
+- Did the Word pack contain any technical/debug material that did not help writing?
 - Was the final package understandable without opening `.litreview/`?
 - Did any Suggested next message loop backward or expose CLI?
 - Did the Working Draft remain bounded enough that final authorship clearly stayed with the researcher?
@@ -125,6 +143,7 @@ Before merging beta to `main`:
 - version synchronized across package, installer and README;
 - Windows + Ubuntu CI green;
 - beta regression tests green;
+- Researcher Writing Pack regression test confirms technical internals are excluded;
 - OpenCode `/lr` activation/researcher-mode contract installed;
 - package command available;
 - no known state-machine infinite loop in discovery refinement or OA coverage.
