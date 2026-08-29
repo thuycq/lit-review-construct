@@ -64,9 +64,22 @@ def oa_coverage_status(root: Path) -> dict[str, object]:
         not _has_local(row) and not row.get("oa_resolved_at")
         for row in eligible
     )
+    toolkit_oa = []
+    for row in eligible:
+        provenance = row.get("full_text_provenance")
+        if isinstance(provenance, dict) and provenance.get("access") == "open_access" and _has_local(row):
+            toolkit_oa.append(row)
+    acquired_at = [
+        str(row.get("full_text_provenance", {}).get("acquired_at") or "")
+        for row in toolkit_oa
+        if isinstance(row.get("full_text_provenance"), dict)
+        and row.get("full_text_provenance", {}).get("acquired_at")
+    ]
     return {
         "eligible_retained_records": len(eligible),
         "local_full_text_records": local,
+        "toolkit_oa_full_text_records": len(toolkit_oa),
+        "latest_toolkit_oa_acquired_at": max(acquired_at) if acquired_at else None,
         "oa_resolution_attempted_without_local_pdf": attempted,
         "remaining_resolution_candidates": remaining,
         "coverage_complete": remaining == 0,
