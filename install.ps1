@@ -2,8 +2,10 @@ $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
 $RepoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+$ExpectedVersion = "0.1.0.dev1"
 Write-Host "Lit Review Construct installer"
 Write-Host "Repository: $RepoRoot"
+Write-Host "Runtime target: $ExpectedVersion"
 
 function Resolve-Uv {
     $cmd = Get-Command uv -ErrorAction SilentlyContinue
@@ -26,7 +28,12 @@ $Uv = Resolve-Uv
 Write-Host "Using uv: $Uv"
 
 & $Uv python install 3.12
-& $Uv tool install --force --python 3.12 $RepoRoot
+if ($LASTEXITCODE -ne 0) { throw "Python 3.12 installation failed." }
+
+# --reinstall is intentional: the toolkit is installed from a local checkout and
+# development builds may change without a release-version change.
+& $Uv tool install --force --reinstall --python 3.12 $RepoRoot
+if ($LASTEXITCODE -ne 0) { throw "Lit Review Construct runtime installation failed." }
 
 $CodexHome = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $HOME ".codex" }
 $CodexSkills = Join-Path $CodexHome "skills"
@@ -53,9 +60,24 @@ if (Test-Path $CanonicalSkills) {
 $InstallRoot = Join-Path $env:LOCALAPPDATA "LitReviewConstruct"
 New-Item -ItemType Directory -Force -Path $InstallRoot | Out-Null
 
+$ResolvedLrc = Get-Command lrc -ErrorAction SilentlyContinue
+$ResolvedPath = $null
+$InstalledVersion = $null
+if ($ResolvedLrc) {
+    $ResolvedPath = $ResolvedLrc.Source
+    try {
+        $InstalledVersion = (& $ResolvedPath version).Trim()
+    } catch {
+        $InstalledVersion = $null
+    }
+}
+
 $Manifest = @{
     installed_at = (Get-Date).ToUniversalTime().ToString("o")
     source_repository = $RepoRoot
+    expected_version = $ExpectedVersion
+    installed_version = $InstalledVersion
+    resolved_lrc = $ResolvedPath
     python = "3.12"
     codex_skills = $CodexSkills
     opencode_skills = $OpenCodeSkills
@@ -66,5 +88,14 @@ Write-Host ""
 Write-Host "Installed Lit Review Construct core and host skills."
 Write-Host "Codex skills: $CodexSkills"
 Write-Host "OpenCode skills: $OpenCodeSkills"
+if ($ResolvedPath) {
+    Write-Host "Resolved lrc: $ResolvedPath"
+    Write-Host "Installed runtime: $InstalledVersion"
+    if ($InstalledVersion -ne $ExpectedVersion) {
+        Write-Warning "The current shell resolves an unexpected lrc version. Close and reopen the terminal before testing."
+    }
+} else {
+    Write-Warning "lrc is not visible in this shell yet. Close and reopen the terminal before testing."
+}
 Write-Host ""
 Write-Host "Open a research folder and run: lrc init"
