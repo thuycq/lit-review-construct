@@ -1,0 +1,79 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import typer
+
+from . import __version__
+from .project import doctor as run_doctor
+from .project import init_project, read_status
+
+app = typer.Typer(
+    name="lrc",
+    help="Lit Review Construct local research toolkit.",
+    no_args_is_help=True,
+)
+
+
+@app.command()
+def version() -> None:
+    """Show the installed Lit Review Construct version."""
+    typer.echo(__version__)
+
+
+@app.command()
+def init(
+    path: Path = typer.Argument(Path("."), help="Research workspace folder."),
+    name: str | None = typer.Option(None, "--name", help="Optional project display name."),
+    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
+) -> None:
+    """Initialize a local Lit Review Construct research workspace."""
+    result = init_project(path, name=name)
+    if json_output:
+        typer.echo(json.dumps(result, ensure_ascii=False))
+        return
+    if result["created"]:
+        typer.echo(f"Initialized Lit Review Construct project at {result['root']}")
+    else:
+        typer.echo(result["message"])
+
+
+@app.command()
+def status(
+    path: Path = typer.Argument(Path("."), help="Research workspace folder."),
+    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
+) -> None:
+    """Show current project workflow status."""
+    try:
+        result = read_status(path)
+    except FileNotFoundError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+
+    if json_output:
+        typer.echo(json.dumps(result, ensure_ascii=False))
+        return
+
+    typer.echo(f"Project: {result['name']}")
+    typer.echo(f"Stage: {result['current_stage']} ({result['stage_status']})")
+    typer.echo(f"Schema: v{result['schema_version']}")
+
+
+@app.command()
+def doctor(
+    path: Path = typer.Argument(Path("."), help="Research workspace folder."),
+    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
+) -> None:
+    """Run basic installation/project checks."""
+    checks = run_doctor(path)
+    if json_output:
+        typer.echo(json.dumps(checks, ensure_ascii=False))
+        return
+
+    for check in checks:
+        typer.echo(f"[{check['status']}] {check['check']}: {check['detail']}")
+
+
+if __name__ == "__main__":
+    app()
