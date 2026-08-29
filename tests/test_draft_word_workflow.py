@@ -5,6 +5,7 @@ from docx import Document
 
 from litreview_construct.draft_support import prepare_working_draft_packet, save_working_draft
 from litreview_construct.project import init_project
+from litreview_construct.researcher_package import prepare_researcher_package
 from litreview_construct.word_export import export_artifact_docx
 from litreview_construct.workflow import project_next_step
 
@@ -198,8 +199,15 @@ def _workflow_fixture(root: Path, *, with_evidence: bool, with_working_draft: bo
     _write_json(root / ".litreview" / "data" / "blueprint.json", {"title": "Blueprint", "sections": []})
     if with_evidence:
         _write_json(root / ".litreview" / "data" / "evidence_map.json", {"summary": "Evidence"})
+        _write_json(
+            root / ".litreview" / "data" / "fulltext_resolution.json",
+            {"coverage_complete": True, "toolkit_oa_full_text_records": 0},
+        )
     if with_working_draft:
-        _write_json(root / ".litreview" / "data" / "working_draft.json", {"title": "Draft", "sections": []})
+        _write_json(
+            root / ".litreview" / "data" / "working_draft.json",
+            {"title": "Draft", "saved_at": "2026-08-29T02:00:00+00:00", "sections": []},
+        )
 
 
 def test_workflow_resolves_fulltext_before_first_evidence_map(tmp_path: Path) -> None:
@@ -215,7 +223,13 @@ def test_workflow_builds_working_draft_before_handoff(tmp_path: Path) -> None:
     assert result["next_action"] == "construct_working_draft"
     assert result["skill"] == "litreview-draft"
 
-    _write_json(tmp_path / ".litreview" / "data" / "working_draft.json", {"title": "Draft", "sections": []})
+    _write_json(
+        tmp_path / ".litreview" / "data" / "working_draft.json",
+        {"title": "Draft", "saved_at": "2026-08-29T02:00:00+00:00", "sections": []},
+    )
+    package_step = project_next_step(tmp_path)
+    assert package_step["next_action"] == "prepare_researcher_package"
+    prepare_researcher_package(tmp_path, export_word=False)
     handoff = project_next_step(tmp_path)
     assert handoff["next_action"] == "researcher_handoff"
-    assert any("export docx" in command for command in handoff["optional_commands"])
+    assert any("package prepare" in command for command in handoff["optional_commands"])
