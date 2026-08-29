@@ -37,7 +37,7 @@ def test_legacy_abstract_evidence_routes_through_oa_then_refresh(tmp_path: Path)
 
     first = project_next_step(tmp_path)
     assert first["next_action"] == "resolve_priority_full_text"
-    assert "predates OA acquisition" in first["reason"]
+    assert first["coverage_complete"] is False
 
     _write_json(
         root / "data" / "fulltext_resolution.json",
@@ -45,13 +45,13 @@ def test_legacy_abstract_evidence_routes_through_oa_then_refresh(tmp_path: Path)
             "timestamp": "2026-08-29T02:00:00+00:00",
             "downloaded": 1,
             "selected_papers": 1,
+            "coverage_complete": True,
         },
     )
     second = project_next_step(tmp_path)
     assert second["next_action"] == "refresh_evidence_after_fulltext"
     assert second["downloaded_full_text"] == 1
 
-    # Once the refreshed Evidence Map is newer than the OA acquisition, the migration gate is done.
     _write_json(
         root / "data" / "evidence_map.json",
         {
