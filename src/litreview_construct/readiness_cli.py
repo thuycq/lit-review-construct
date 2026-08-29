@@ -6,6 +6,7 @@ from pathlib import Path
 import typer
 
 from . import main_cli as discovery_cli
+from .campaign import discovery_status as _base_discovery_status
 from .main_cli import discover_app
 from .project import PROJECT_DIR, _write_json
 from .readiness import assess_discovery_readiness
@@ -41,10 +42,29 @@ def _record_decision_with_readiness(
     return result
 
 
-# main_cli's command body resolves this module global at runtime. app_cli has already replaced it
-# with the activity-logging wrapper; this layer adds the finish-time coverage snapshot without
-# bypassing the activity log.
+def _enhanced_discovery_status(root: Path) -> dict[str, object]:
+    result = _base_discovery_status(root)
+    if not result.get("exists"):
+        return result
+    readiness = assess_discovery_readiness(root)
+    # Preserve the legacy status shape for command compatibility, but make provider/query counts
+    # reflect successful retrieval rather than merely requested providers.
+    result["providers_used"] = readiness["successful_providers"]
+    result["query_families"] = readiness["successful_query_family_count"]
+    result["triaged_records"] = readiness["triaged_records"]
+    result["untriaged_records"] = readiness["untriaged_records"]
+    result["unresolved_records"] = readiness["unresolved_records"]
+    result["saved_query_plans"] = readiness["saved_query_plans"]
+    result["readiness"] = readiness
+    result["warnings"] = readiness["warnings"]
+    return result
+
+
+# main_cli command bodies resolve these module globals at runtime. app_cli has already installed
+# activity-logging/resilient wrappers; this layer adds successful-coverage status and a finish-time
+# readiness snapshot without bypassing those wrappers.
 discovery_cli.record_discovery_decision = _record_decision_with_readiness
+discovery_cli.discovery_status = _enhanced_discovery_status
 
 
 @discover_app.command("readiness")
