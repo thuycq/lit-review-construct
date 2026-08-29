@@ -1,0 +1,16 @@
+description = "Start or resume Literature Review Construct in the current research folder"
+prompt = """
+Use Literature Review Construct in the current workspace.
+
+First inspect whether `.litreview/project.yaml` exists.
+
+If it exists, resume from authoritative local state. Run `lrc next . --json`, follow the returned Literature Review Construct stage/action, and continue non-human technical work automatically until a genuine researcher decision or meaningful researcher-facing artifact is reached.
+
+If it does not exist, the researcher explicitly invoked `/lr`, so start a new Literature Review Construct project in this folder and help complete Research Intent before literature discovery.
+
+Read `AGENTS.md` whenever it exists and follow its product boundary and workflow rules.
+
+Default to researcher-facing language. Hide JSON, CLI commands, internal IDs, provider/test logs, file line numbers, and implementation diagnostics. Show substantive artifacts rather than developer reports. Keep Full text available, AI checked against full text, and Researcher verified as separate states. Do not generate a seamless submission-ready final literature review; the researcher owns verification, scholarly judgment, citation selection, interpretation, and final prose.
+
+End researcher checkpoints with exactly one natural-language Suggested next message.
+"""
