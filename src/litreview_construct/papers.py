@@ -55,8 +55,7 @@ def _extract_pdf_metadata(path: Path) -> dict[str, object]:
                 if part.strip()
             ]
 
-        # DOI extraction is deliberately bounded to document metadata and the
-        # first two pages. Full-text extraction belongs to later evidence stages.
+        # Bounded extraction only: metadata plus the first two pages.
         doi = extract_doi(str(raw_subject) if raw_subject else None)
         if doi is None:
             first_pages: list[str] = []
@@ -68,7 +67,7 @@ def _extract_pdf_metadata(path: Path) -> dict[str, object]:
                 if text:
                     first_pages.append(text)
             doi = extract_doi("\n".join(first_pages))
-    except Exception as exc:  # parser failures are recorded, not fatal to the scan
+    except Exception as exc:
         parse_status = "metadata_error"
         error = str(exc)
 
@@ -94,11 +93,11 @@ def _load_project(root: Path) -> dict[str, object]:
 def _load_records(path: Path) -> list[dict[str, object]]:
     if not path.exists():
         return []
-    records: list[dict[str, object]] = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if line.strip():
-            records.append(json.loads(line))
-    return records
+    return [
+        json.loads(line)
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
 
 
 def _records_by_hash(records: list[dict[str, object]]) -> dict[str, dict[str, object]]:
@@ -109,42 +108,51 @@ def _records_by_hash(records: list[dict[str, object]]) -> dict[str, dict[str, ob
     }
 
 
-def _ensure_file_instance(
-    record: dict[str, object], root: Path, pdf: Path
-) -> tuple[str, str, bool]:
+def _ensure_file_instance(record: dict[str, object], root: Path, pdf: Path) -> None:
     reference, location_type = _file_location(root, pdf)
     instances = record.get("file_instances")
     if not isinstance(instances, list):
         instances = []
         old_reference = record.get("file_reference")
-        old_location = record.get("location_type")
         if old_reference:
             instances.append(
                 {
                     "file_reference": str(old_reference),
-                    "location_type": str(old_location or "managed"),
+                    "location_type": str(record.get("location_type") or "managed"),
                 }
             )
     candidate = {"file_reference": reference, "location_type": location_type}
-    added = candidate not in instances
-    if added:
+    if candidate not in instances:
         instances.append(candidate)
         record["updated_at"] = _now()
     record["file_instances"] = instances
-    return reference, location_type, added
+
+
+def _backfill_record(record: dict[str, object]) -> None:
+    record["normalized_title"] = normalize_title(str(record.get("title") or ""))
+    if isinstance(record.get("doi"), str):
+        record["doi"] = normalize_doi(str(record["doi"]))
+    if not isinstance(record.get("file_instances"), list) and record.get("file_reference"):
+        record["file_instances"] = [
+            {
+                "file_reference": str(record["file_reference"]),
+                "location_type": str(record.get("location_type") or "managed"),
+            }
+        ]
 
 
 def resolve_bibliography(root: Path) -> dict[str, object]:
-    """Rebuild bibliographic relation candidates from indexed paper records."""
+    """Rebuild duplicate/version candidates without merging scholarly records."""
     root = root.expanduser().resolve()
     _load_project(root)
     state_root = root / PROJECT_DIR
-    records_file = state_root / "data" / "papers.jsonl"
-    records = _load_records(records_file)
+    records = _load_records(state_root / "data" / "papers.jsonl")
     relations = detect_relations(records)
     relations_file = state_root / "data" / "paper_relations.jsonl"
-    payload = "".join(json.dumps(item, ensure_ascii=False) + "\n" for item in relations)
-    _atomic_write_text(relations_file, payload)
+    _atomic_write_text(
+        relations_file,
+        "".join(json.dumps(item, ensure_ascii=False) + "\n" for item in relations),
+    )
     return {
         "records_total": len(records),
         "relation_candidates": len(relations),
@@ -162,11 +170,10 @@ def _render_inventory(
     source_dir: Path,
     pdf_count: int,
     all_records: list[dict[str, object]],
-    scanned_ids: list[str],
+    scanned_ids: set[str],
     relation_summary: dict[str, object],
 ) -> Path:
-    scanned_set = set(scanned_ids)
-    inventory_lines = [
+    lines = [
         "# Existing Literature Inventory",
         "",
         f"Seed source: `{source_dir}`",
@@ -178,22 +185,22 @@ def _render_inventory(
         "|---|---|---|---|---|",
     ]
     for record in all_records:
-        if str(record.get("paper_id")) not in scanned_set:
+        if str(record.get("paper_id")) not in scanned_ids:
             continue
         title = str(record.get("title") or "Untitled").replace("|", "\\|")
         doi = str(record.get("doi") or "")
-        locations = record.get("file_instances")
-        if isinstance(locations, list) and locations:
-            location_label = ", ".join(
-                sorted({str(item.get("location_type", "unknown")) for item in locations})
+        instances = record.get("file_instances")
+        if isinstance(instances, list) and instances:
+            location = ", ".join(
+                sorted({str(item.get("location_type", "unknown")) for item in instances})
             )
         else:
-            location_label = str(record.get("location_type") or "unknown")
-        inventory_lines.append(
-            f"| {title} | {doi} | {location_label} | {record['parse_status']} | {record['status']} |"
+            location = str(record.get("location_type") or "unknown")
+        lines.append(
+            f"| {title} | {doi} | {location} | {record['parse_status']} | {record['status']} |"
         )
 
-    inventory_lines.extend(
+    lines.extend(
         [
             "",
             "## Bibliographic relation candidates",
@@ -207,7 +214,7 @@ def _render_inventory(
         ]
     )
     output = root / "outputs" / "02_seed_inventory.md"
-    _atomic_write_text(output, "\n".join(inventory_lines))
+    _atomic_write_text(output, "\n".join(lines))
     return output
 
 
@@ -222,20 +229,24 @@ def scan_seed_papers(root: Path, source: Path | None = None) -> dict[str, object
     records_file = state_root / "data" / "papers.jsonl"
     records = _load_records(records_file)
     by_hash = _records_by_hash(records)
-    scanned_ids: list[str] = []
+    scanned_ids: set[str] = set()
+    seen_hashes: set[str] = set()
     duplicate_file_count = 0
 
     pdfs = sorted(p for p in source_dir.rglob("*.pdf") if p.is_file())
     for pdf in pdfs:
         file_hash = _sha256(pdf)
+        if file_hash in seen_hashes:
+            duplicate_file_count += 1
+        else:
+            seen_hashes.add(file_hash)
+
         if file_hash in by_hash:
             record = by_hash[file_hash]
-            _, _, added_instance = _ensure_file_instance(record, root, pdf)
-            if added_instance:
-                duplicate_file_count += 1
+            _ensure_file_instance(record, root, pdf)
         else:
             metadata = _extract_pdf_metadata(pdf)
-            relative_path, location_type = _file_location(root, pdf)
+            reference, location_type = _file_location(root, pdf)
             record = {
                 "paper_id": str(uuid4()),
                 "title": metadata["title"],
@@ -248,9 +259,9 @@ def scan_seed_papers(root: Path, source: Path | None = None) -> dict[str, object
                 "language": None,
                 "source_origin": "user_seed",
                 "location_type": location_type,
-                "file_reference": relative_path,
+                "file_reference": reference,
                 "file_instances": [
-                    {"file_reference": relative_path, "location_type": location_type}
+                    {"file_reference": reference, "location_type": location_type}
                 ],
                 "file_hash": file_hash,
                 "page_count": metadata["page_count"],
@@ -262,27 +273,16 @@ def scan_seed_papers(root: Path, source: Path | None = None) -> dict[str, object
             }
             records.append(record)
             by_hash[file_hash] = record
-        scanned_ids.append(str(record["paper_id"]))
+        scanned_ids.add(str(record["paper_id"]))
 
-    # Backfill normalized fields for records created by earlier runtime versions.
     for record in records:
-        record["normalized_title"] = normalize_title(str(record.get("title") or ""))
-        if isinstance(record.get("doi"), str):
-            record["doi"] = normalize_doi(str(record["doi"]))
-        instances = record.get("file_instances")
-        if not isinstance(instances, list):
-            old_reference = record.get("file_reference")
-            if old_reference:
-                record["file_instances"] = [
-                    {
-                        "file_reference": str(old_reference),
-                        "location_type": str(record.get("location_type") or "managed"),
-                    }
-                ]
+        _backfill_record(record)
 
     all_records = sorted(records, key=lambda item: str(item.get("title") or "").lower())
-    payload = "".join(json.dumps(record, ensure_ascii=False) + "\n" for record in all_records)
-    _atomic_write_text(records_file, payload)
+    _atomic_write_text(
+        records_file,
+        "".join(json.dumps(record, ensure_ascii=False) + "\n" for record in all_records),
+    )
 
     relation_summary = resolve_bibliography(root)
     inventory = _render_inventory(
@@ -298,8 +298,6 @@ def scan_seed_papers(root: Path, source: Path | None = None) -> dict[str, object
     state = json.loads(state_file.read_text(encoding="utf-8"))
     state["stages"]["seed_literature"]["status"] = "in_progress"
     state["stages"]["seed_literature"]["revision"] += 1
-    # Seed papers may be supplied while Research Intent is still being refined.
-    # Do not implicitly complete or replace the current stage here.
     if state["stages"]["research_intent"]["status"] in {"accepted", "ready_for_review"}:
         state["current_stage"] = "seed_literature"
     _write_json(state_file, state)
@@ -318,7 +316,7 @@ def scan_seed_papers(root: Path, source: Path | None = None) -> dict[str, object
             ".litreview/data/paper_relations.jsonl",
             "outputs/02_seed_inventory.md",
         ],
-        "source_ids": sorted(set(scanned_ids)),
+        "source_ids": sorted(scanned_ids),
         "notes": None,
     }
     with activity_file.open("a", encoding="utf-8") as handle:
