@@ -104,26 +104,17 @@ def summarize_ai_use(root: Path) -> dict[str, object]:
         elif actor == "toolkit" and category in TOOL_EVENT_LABELS:
             tool_counts[category] += 1
 
-    # Older/dev projects may contain AI-provenance artifacts before activity logging was wired in.
     for category, _ in _artifact_inferences(root):
         if not ai_counts[category]:
             ai_counts[category] = 1
 
     ai_activities = [
-        {
-            "category": category,
-            "label": AI_EVENT_LABELS[category],
-            "events": count,
-        }
+        {"category": category, "label": AI_EVENT_LABELS[category], "events": count}
         for category, count in AI_EVENT_LABELS.items()
         if ai_counts.get(category)
     ]
     tool_activities = [
-        {
-            "category": category,
-            "label": TOOL_EVENT_LABELS[category],
-            "events": count,
-        }
+        {"category": category, "label": TOOL_EVENT_LABELS[category], "events": count}
         for category, count in TOOL_EVENT_LABELS.items()
         if tool_counts.get(category)
     ]
@@ -135,6 +126,13 @@ def summarize_ai_use(root: Path) -> dict[str, object]:
         "models_recorded": sorted(models),
         "scope_note": "This summary reflects only activities recorded inside this Lit Review Construct project.",
     }
+
+
+def _draft_was_used(summary: dict[str, object]) -> bool:
+    return any(
+        isinstance(row, dict) and row.get("category") == "draft_fragment"
+        for row in summary.get("ai_activities") or []
+    )
 
 
 def _short_statement(summary: dict[str, object]) -> str:
@@ -164,11 +162,16 @@ def _standard_statement(summary: dict[str, object]) -> str:
     )
     if tool_activities:
         text += "The workflow also used deterministic tooling for " + _human_join(tool_activities) + ". "
-    text += (
+    responsibilities = (
         "The researcher remained responsible for evaluating relevance, verifying source content and citations, "
-        "selecting the research direction, interpreting the literature, rewriting and approving any AI-assisted draft fragments, "
-        "and authoring the final manuscript text. This disclosure is generated from the activities recorded in this project and "
-        "does not claim uses that were not logged."
+        "selecting the research direction, interpreting the literature"
+    )
+    if _draft_was_used(summary):
+        responsibilities += ", rewriting and approving AI-assisted draft fragments"
+    responsibilities += ", and authoring the final manuscript text. "
+    text += responsibilities
+    text += (
+        "This disclosure is generated from the activities recorded in this project and does not claim uses that were not logged."
     )
     return text
 
@@ -178,9 +181,10 @@ def _detailed_statement(summary: dict[str, object]) -> str:
     tool_activities = [str(row["label"]) for row in summary["tool_activities"]]
     if not activities:
         return _short_statement(summary)
-    details = []
-    for row in summary["ai_activities"]:
-        details.append(f"{row['label']} ({row['events']} recorded event{'s' if row['events'] != 1 else ''})")
+    details = [
+        f"{row['label']} ({row['events']} recorded event{'s' if row['events'] != 1 else ''})"
+        for row in summary["ai_activities"]
+    ]
     text = (
         "Lit Review Construct was used as an AI-assisted research support environment. Recorded AI-assisted activities included "
         + _human_join(details)
@@ -194,12 +198,15 @@ def _detailed_statement(summary: dict[str, object]) -> str:
         text += "Recorded host environment(s): " + ", ".join(str(value) for value in hosts) + ". "
     if models:
         text += "Recorded model identifier(s): " + ", ".join(str(value) for value in models) + ". "
+    text += "AI outputs were treated as suggestions or working material requiring researcher review. "
     text += (
-        "AI outputs were treated as suggestions or working material requiring researcher review. "
         "The researcher retained responsibility for relevance decisions, source and citation verification, interpretation, "
-        "the final research direction, rewriting and approving draft fragments, the final prose, and research integrity. "
-        "This statement is limited to the auditable activities recorded inside this project."
+        "the final research direction"
     )
+    if _draft_was_used(summary):
+        text += ", rewriting and approving AI-assisted draft fragments"
+    text += ", the final prose, and research integrity. "
+    text += "This statement is limited to the auditable activities recorded inside this project."
     return text
 
 
