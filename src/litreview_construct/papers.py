@@ -93,11 +93,17 @@ def _load_project(root: Path) -> dict[str, object]:
 def _load_records(path: Path) -> list[dict[str, object]]:
     if not path.exists():
         return []
-    return [
-        json.loads(line)
-        for line in path.read_text(encoding="utf-8").splitlines()
-        if line.strip()
-    ]
+    records: list[dict[str, object]] = []
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        if not raw.strip():
+            continue
+        try:
+            row = json.loads(raw)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(row, dict):
+            records.append(row)
+    return records
 
 
 def _records_by_hash(records: list[dict[str, object]]) -> dict[str, dict[str, object]]:
@@ -209,7 +215,7 @@ def _render_inventory(
             f"- Probable duplicate records: **{relation_summary['probable_duplicates']}**",
             f"- Possible related versions: **{relation_summary['possible_versions']}**",
             "",
-            "> Relation candidates are linked for review and are not silently merged. User-provided papers remain seed literature until relevance is assessed.",
+            "> Relation candidates are linked for review and are not silently merged. Researcher-provided papers remain seed literature until relevance is assessed.",
             "",
         ]
     )
@@ -222,7 +228,8 @@ def scan_seed_papers(root: Path, source: Path | None = None) -> dict[str, object
     root = root.expanduser().resolve()
     _load_project(root)
     state_root = root / PROJECT_DIR
-    source_dir = source.expanduser().resolve() if source else root / "papers"
+    source_dir = source.expanduser().resolve() if source else root / "papers" / "user_uploads"
+    source_dir.mkdir(parents=True, exist_ok=True)
     if not source_dir.is_dir():
         raise FileNotFoundError(f"Paper folder not found: {source_dir}")
 
