@@ -85,8 +85,7 @@ def project_next_step(root: Path) -> dict[str, object]:
         }
 
     campaign_file = root / PROJECT_DIR / "data" / "discovery_campaign.json"
-    discovery_status = _stage(state, "literature_discovery")
-    if not campaign_file.exists() or discovery_status != "accepted":
+    if not campaign_file.exists():
         discovery = discovery_next_step(root)
         return {
             **discovery,
@@ -106,6 +105,8 @@ def project_next_step(root: Path) -> dict[str, object]:
     landscape_status = _stage(state, "literature_discovery")
     landscape_file = root / PROJECT_DIR / "data" / "landscape.json"
     # literature_discovery is the stage that owns the final Research Landscape in v0.1.
+    # A saved landscape may leave that stage ready_for_review; that is sufficient to move into
+    # Evidence Mapping. needs_refresh means the landscape must be rebuilt.
     if not landscape_file.exists() or landscape_status in {"needs_refresh", "in_progress"}:
         return {
             "next_action": "construct_current_research_landscape",
