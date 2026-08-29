@@ -75,7 +75,7 @@ def test_similar_title_can_be_possible_version() -> None:
         ),
         _paper(
             "b",
-            "Working Capital Management and Firm Performance: New Evidence",
+            "Working Capital Management and Firms Performance",
             authors=["Anh Nguyen"],
             year=2024,
         ),
