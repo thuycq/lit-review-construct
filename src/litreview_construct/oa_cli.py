@@ -6,7 +6,7 @@ from pathlib import Path
 import typer
 
 from .app_cli import fulltext_app
-from .oa_coverage import finalize_oa_report, next_oa_batch, oa_coverage_status
+from .oa_coverage import finalize_oa_report, next_oa_batch
 from .oa_fulltext import acquire_open_access_full_text
 from .paper_library import sync_acquired_oa_library
 
@@ -31,19 +31,21 @@ def fulltext_acquire(
     try:
         selected = paper_id if paper_id else next_oa_batch(path, max_papers=max_papers)
         if not selected:
-            result = {
-                "selected_papers": 0,
-                "download_requested": not resolve_only,
-                "already_local": 0,
-                "resolved_pdf": 0,
-                "downloaded": 0,
-                "resolved_landing": 0,
-                "unresolved_or_closed": 0,
-                "unpaywall_enabled": False,
-                "provider_failures": [],
-                "outcomes": [],
-            }
-            result.update(oa_coverage_status(path))
+            result = finalize_oa_report(
+                path,
+                {
+                    "selected_papers": 0,
+                    "download_requested": not resolve_only,
+                    "already_local": 0,
+                    "resolved_pdf": 0,
+                    "downloaded": 0,
+                    "resolved_landing": 0,
+                    "unresolved_or_closed": 0,
+                    "unpaywall_enabled": False,
+                    "provider_failures": [],
+                    "outcomes": [],
+                },
+            )
         else:
             result = acquire_open_access_full_text(
                 path,
