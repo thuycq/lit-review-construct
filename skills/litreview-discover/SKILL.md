@@ -1,6 +1,6 @@
 ---
 name: litreview-discover
-description: Run iterative multi-source literature discovery for an accepted Lit Review Construct Research Intent. Use when the researcher wants to build a broad literature universe, inspect provisional research streams early, narrow toward selected themes, expand through citation/reference networks, or change scope before constructing a defensible Research Landscape.
+description: Run iterative multi-source literature discovery for an accepted Lit Review Construct Research Intent. Use when the researcher wants to build a broad literature universe, inspect provisional research streams early, narrow toward selected themes, expand through citation/reference networks, resume a prior discovery campaign, or change scope before constructing a defensible Research Landscape.
 license: MIT
 compatibility: Codex and OpenCode
 metadata:
@@ -14,251 +14,231 @@ Use this skill after the Research Intent has been accepted.
 
 ## Product boundary
 
-The purpose of discovery is to build and progressively narrow a sufficiently broad literature universe for a narrative review before making strong research-gap claims. Do not claim exhaustive retrieval, systematic-review completeness, PRISMA compliance, or formal screening completeness. Do not write a complete final literature review.
+Discovery exists to build and progressively narrow a sufficiently broad literature universe for a **narrative review** before strong research-gap claims are considered. Do not claim exhaustive retrieval, systematic-review completeness, PRISMA compliance, or formal screening completeness. Do not write a complete final literature review.
 
-## Runtime rules
+The researcher controls scope and narrowing. AI may recommend actions, streams, and search directions, but it must not silently choose a research focus or decide that discovery is sufficient.
+
+## Runtime and resume rules
 
 - Use the globally installed `lrc` runtime.
-- Treat `.litreview/` as authoritative project state; do not rely on conversation history as the project database.
+- Treat `.litreview/` as authoritative project state; conversation history is not the project database.
+- At the beginning of a discovery turn, especially after reopening a project or switching hosts, run:
+
+  `lrc discover next . --json`
+
+  Follow the returned structural action. If `human_checkpoint_required` is true, stop and ask the researcher rather than continuing automatically.
+- Use `lrc discover status . --json` for campaign status and successful provider/query coverage.
 - Supported first-version discovery providers are **OpenAlex, Crossref, and Semantic Scholar**.
 - Provider configuration is global/environmental: `OPENALEX_API_KEY`, `CROSSREF_MAILTO`, and `SEMANTIC_SCHOLAR_API_KEY`.
-- If one provider fails or is rate-limited, keep successful provider results and record the failure rather than discarding the whole iteration.
+- If one provider fails or is rate-limited, preserve successful results from other providers and record the failure.
 - Never store API credentials inside the research workspace.
 - Do not create a project-local Python environment.
 
 ## Core discovery model
 
-Discovery is an **iterative researcher-guided funnel**, not a one-shot search:
+Discovery is an **iterative researcher-guided funnel**:
 
-**Research Intent → structured Query Plan → broad multi-source retrieval → early exploratory synthesis → researcher checkpoint → continue/focus/change scope → bounded triage → focused Query Plan → focused retrieval + citation chaining → re-triage → repeated researcher checkpoints → researcher finishes discovery → Research Landscape → Evidence Map → Research Direction.**
+**Research Intent → structured Query Plan → broad multi-source retrieval → early provisional map → researcher checkpoint → continue/focus/change scope → bounded triage → focused Query Plan → focused retrieval + citation chaining → re-triage → repeated researcher checkpoints → Discovery Readiness → researcher finishes discovery → Research Landscape → Evidence Map → Research Direction.**
 
-A broad topic may legitimately produce hundreds or thousands of metadata records. Do not reduce the search universe to a few papers merely to fit model context. The runtime stores the large universe locally and prepares bounded packets for AI analysis.
+A broad topic may legitimately produce hundreds or thousands of records. Do not shrink the literature universe merely to fit model context. The large corpus remains local; the host model receives bounded packets.
 
-## 1. Start discovery and create a broad Query Plan
+## 1. Start discovery and plan broad retrieval
 
-1. Run `lrc intent show . --json` and verify the Research Intent is accepted.
-2. Inspect seed papers when available. Seed papers can contribute terminology and known anchors, but are not automatically relevant.
-3. Run `lrc discover start .`.
-4. Run:
+If `lrc discover next . --json` indicates discovery has not started:
 
-   `lrc discover prepare-plan . --phase broad --json`
-
-5. Read `.litreview/packets/query_plan.json`.
-6. Produce a structured plan with several interpretable query families rather than one giant opaque query. Normally include:
-   - at least one direct-construct query;
-   - at least one terminology/synonym query;
-   - mechanism, theory, context, or method families when they materially improve coverage.
-7. Give each family a name, role, rationale, concepts, and priority. Do not design queries around citation count.
-8. Save the plan:
+1. Run `lrc discover start .`.
+2. Run `lrc discover prepare-plan . --phase broad --json`.
+3. Read `.litreview/packets/query_plan.json`.
+4. Construct several interpretable query families rather than one opaque giant query. Normally cover:
+   - the direct focal constructs/relationship;
+   - terminology or synonym variants;
+   - mechanisms, theories, contexts, or methods when they materially improve recall.
+5. Give every query family a name, role, query, rationale, concepts, and priority.
+6. Save the structured plan:
 
    `lrc discover save-plan . --input .litreview/packets/query_plan_submission.json`
 
-9. Execute it:
+7. Execute the saved plan:
 
    `lrc discover run-plan . --max-per-query-provider 300`
 
-`run-plan` normally requests all three scholarly providers. It records the plan, provider results, provider failures, and the discovery iteration. The saved plan makes search decisions auditable and reproducible.
+The saved Query Plan makes search logic auditable. It does **not** imply exhaustive retrieval.
 
 ### Broad-retrieval principles
 
-- Prefer recall early. A broad finance topic may produce hundreds or thousands of records.
-- Do not treat retrieval rank, citation count, or provider presence as a relevance decision.
-- Do not load the entire retrieved universe into model context.
+- Prefer recall early.
+- Do not use citation count as a relevance decision.
+- Do not load the whole corpus into model context.
 - Keep newly discovered papers unresolved until relevance triage.
-- Unknown provider language metadata may be retained for later triage rather than silently discarded.
-- Provider overlap is useful corroboration but not evidence of substantive relevance.
-- A query plan does not imply exhaustive retrieval.
+- Unknown provider-language metadata may remain for later triage rather than being silently discarded.
+- Provider overlap is useful audit information, not proof of substantive relevance.
+- Each paper may retain `discovery_hits` identifying query, provider, phase, iteration, and retrieval time. Multiple hits are not a relevance score.
 
-## 2. Show the researcher an early provisional map before deep filtering
+## 2. Show an early provisional map before deep filtering
 
-The researcher should not have to wait for hundreds of papers to be triaged before seeing what the broad literature appears to contain.
+After a substantial broad retrieval, the researcher should see what the field appears to contain **before** being forced through hundreds of triage decisions.
 
-After the first substantial broad iteration:
+When `lrc discover next . --json` returns `prepare_early_review`:
 
-1. Run `lrc discover prepare-review . --json` **without** `--after-triage`.
-2. Read `.litreview/packets/discovery_review.json`. It contains a bounded representative sample plus campaign-level coverage information; it is not the whole corpus.
+1. Run `lrc discover prepare-review . --json` without `--after-triage`.
+2. Read `.litreview/packets/discovery_review.json`.
 3. Produce only an exploratory map:
    - provisional research streams;
    - indicative terminology;
    - provisional questions;
    - candidate focus areas;
    - suggested next queries;
-   - obvious coverage weaknesses/noise;
-   - whether more broad retrieval, focused retrieval, or triage appears useful.
-4. Do not call any stream a final gap or novelty claim.
+   - visible noise/coverage weaknesses;
+   - a recommendation to continue broadly, focus, change scope, or begin deeper filtering.
+4. Do not call provisional streams final gaps or novelty claims.
 5. Save the review:
 
    `lrc discover save-review . --input .litreview/packets/discovery_review_submission.json`
 
-6. **Stop and ask the researcher** to choose:
-   - **continue** — broaden the literature universe further;
-   - **focus** — prioritize one or more promising streams/focuses;
-   - **change_scope** — revise the topic/question/scope based on what the literature revealed;
-   - **finish** — only when the researcher judges discovery genuinely sufficient for the current narrative-review purpose.
+The campaign then becomes `awaiting_researcher`.
 
-The AI may recommend an action but must not record the decision until the researcher explicitly chooses.
+## 3. Human checkpoint: never bypass it
 
-Examples:
+When `lrc discover next . --json` returns `researcher_decision_required`, stop and present the literature map plus relevant coverage warnings. Ask the researcher to choose:
+
+- **continue** — broaden the literature universe;
+- **focus** — prioritize one or more selected streams/focuses;
+- **change_scope** — revise the topic/question/scope;
+- **finish** — only if the researcher judges discovery sufficient for the current narrative-review purpose.
+
+Record only the researcher's explicit choice:
 
 - `lrc discover decide . --action continue`
-- `lrc discover decide . --action focus --focus "Nonlinear working-capital optimization"`
-- `lrc discover decide . --action change_scope --notes "Shift toward SMEs in emerging markets"`
+- `lrc discover decide . --action focus --focus "<researcher-selected focus>"`
+- `lrc discover decide . --action change_scope --notes "<researcher request>"`
 - `lrc discover decide . --action finish`
 
-For a broad topic, an early `finish` after one small iteration should be discouraged with coverage warnings rather than treated as evidence of a definitive gap.
+Before presenting `finish` as a sensible option, run `lrc discover readiness . --json` and explain material warnings. Readiness is advisory; it is not a numeric sufficiency score and does not replace researcher judgment.
 
-## 3. If the researcher continues broadly
+## 4. Continue broad discovery
 
-When the researcher chooses **continue**:
+If the researcher chooses `continue`, `lrc discover next . --json` will route the project back to a broad Query Plan. Use previous query history in the planning packet to build **complementary** terminology, theory/mechanism, context, or method families rather than mechanically repeating prior searches.
 
-1. Prepare another broad Query Plan with `lrc discover prepare-plan . --phase broad --json`.
-2. Inspect `previous_query_families` in the packet.
-3. Design complementary queries that improve terminology, theory/mechanism, context, or method coverage instead of mechanically repeating the first plan.
-4. Save and run the plan.
-5. Rebuild the early discovery review.
-6. Stop for another researcher checkpoint.
+Save and execute the new plan, rebuild the early map, and return to another researcher checkpoint. Several broad rounds are valid for large or fragmented topics.
 
-Several broad iterations are acceptable when the topic is large or terminology is fragmented.
+## 5. Focused discovery after researcher selection
 
-## 4. If the researcher selects a focus
+If the researcher chooses `focus`:
 
-When the researcher chooses **focus**:
+1. Run `lrc discover prepare-plan . --phase focused --json` when the navigator requests it.
+2. The packet contains researcher-selected focus areas and previous query history.
+3. Build focused follow-up queries around those areas while retaining useful adjacent terminology that could challenge an overly narrow interpretation.
+4. Save and run the focused plan.
+5. Newly retrieved papers enter the same corpus and triage funnel.
 
-1. Run:
+A focus decision is revisable. The researcher may later broaden again, combine streams, choose another focus, or change scope.
 
-   `lrc discover prepare-plan . --phase focused --json`
+## 6. Progressive relevance triage
 
-2. The packet must contain the researcher-selected focus and previous query history.
-3. Build focused follow-up queries around the chosen stream(s), but include adjacent terminology where useful to test whether the apparent focus is too narrow.
-4. Save the focused plan and run it with `lrc discover run-plan .`.
-5. Newly discovered papers return to the same corpus and must later enter the triage loop.
-
-The researcher may later broaden again, combine streams, choose a different focus, or request a scope change. Do not force a one-way funnel.
-
-## 5. Progressively triage the corpus in bounded batches
-
-After the researcher has seen the initial broad map—and especially after a focus has been selected—classify title/abstract relevance progressively rather than loading the entire corpus into context.
+When `lrc discover next . --json` returns `continue_triage`, work in bounded batches:
 
 1. Run `lrc discover prepare-triage . --batch-size 100 --json`.
 2. Read `.litreview/packets/triage.json`.
-3. Classify **every paper in that packet** using only supplied title/abstract/metadata:
-   - `relevant` — directly useful to the current focal relationship/question;
-   - `background` — useful framing/theory/context but not directly focal;
-   - `adjacent` — nearby work that may reveal an alternative direction or mechanism;
-   - `out_of_scope` — clearly outside the current intent/focus;
-   - `unresolved` — insufficient title/abstract information to classify confidently.
+3. Classify every supplied paper using title/abstract/metadata only:
+   - `relevant` — directly useful to the focal question/relationship;
+   - `background` — useful framing/theory/context;
+   - `adjacent` — nearby work that may expose an alternative mechanism/direction;
+   - `out_of_scope` — clearly outside current intent/focus;
+   - `unresolved` — information is insufficient for a confident classification.
 4. Assign priority: `core_candidate`, `high`, `medium`, or `low`.
-5. Give a short auditable rationale plus optional stream tags/key terms.
+5. Give a short auditable rationale and optional stream/key-term tags.
 6. Save the batch:
 
    `lrc discover save-triage . --input .litreview/packets/triage_submission.json`
 
-7. Check progress with `lrc discover triage-status .`.
-8. Repeat in bounded batches. It is not necessary to classify every paper before every checkpoint; classify enough of the current universe to make the next narrowing decision responsibly.
+7. Continue according to `lrc discover next . --json`.
 
-Triage is not full-text screening. Do not infer detailed findings, methods, causal claims, or definitive gaps from title/abstract triage. `unresolved` is a valid outcome and is preferable to guessing.
+Triage is **not** full-text screening. Do not infer detailed methods, causal findings, limitations, or definitive gaps from title/abstract triage. `unresolved` is preferable to guessing.
 
-## 6. Re-analyze after triage and return to the researcher
+## 7. Re-map after filtering
 
-Once meaningful triage has occurred, use:
+When the navigator returns `prepare_narrowing_review`:
 
-`lrc discover prepare-review . --after-triage --json`
+1. Run `lrc discover prepare-review . --after-triage --json`.
+2. Emphasize retained papers while reporting remaining untriaged/unresolved coverage.
+3. Update provisional streams, central/background/adjacent distinctions, candidate focus areas, query suggestions, graph-expansion needs, and uncertainty.
+4. Save the review and return to the researcher checkpoint.
 
-The triage-aware review should emphasize retained papers while still reporting how much of the corpus remains untriaged or unresolved. Produce:
+This cycle may repeat many times.
 
-- updated provisional streams;
-- what appears central vs background vs adjacent;
-- candidate focus areas;
-- concrete next-query suggestions;
-- whether graph expansion is now useful;
-- coverage weaknesses and uncertainty;
-- recommended next action.
+## 8. Citation/reference/related-paper expansion
 
-Save with `lrc discover save-review ...`, then stop for the same researcher decision: **continue / focus / change_scope / finish**.
-
-This checkpoint can recur many times. The literature should expose possible directions while the researcher controls where the funnel narrows.
-
-## 7. Citation/reference/related-paper expansion
-
-Keyword/concept search and graph expansion are complementary. Once strong relevant/core candidates emerge, use them as seeds for snowballing.
+Keyword/concept search and scholarly-network expansion are complementary. Once strong relevant/core candidates emerge, use a **small** seed set for snowballing.
 
 Examples:
 
-- References + citations around automatically selected relevant/core candidates:
-
-  `lrc discover expand . --relation both --max-per-seed-provider 100`
-
-- Expand around explicit paper IDs:
-
-  `lrc discover expand . --paper-id <id1> --paper-id <id2> --relation both`
-
-- OpenAlex related-work expansion:
-
-  `lrc discover expand . --paper-id <id> --relation related --provider openalex`
+- `lrc discover expand . --relation both --max-per-seed-provider 100`
+- `lrc discover expand . --paper-id <id1> --paper-id <id2> --relation both`
+- `lrc discover expand . --paper-id <id> --relation related --provider openalex`
 
 Rules:
 
-- Normally use a small seed set; hard cap is 20 seeds per graph-expansion iteration.
-- Do not snowball from every retrieved paper.
-- Graph-discovered papers return to the same deduplication and triage funnel.
-- `.litreview/data/paper_graph.jsonl` records source paper → target paper → relation → provider.
+- Do not snowball from every retrieved paper; the hard seed cap is 20 per iteration.
+- Graph-discovered papers return to deduplication and triage.
+- `.litreview/data/paper_graph.jsonl` preserves source paper → target paper → relation → provider.
 - Citation count is not relevance.
-- Citation chaining is not a substitute for concept search.
-- In v0.1, OpenAlex and Semantic Scholar are graph backends; Crossref remains a metadata/search source.
+- Citation chaining does not replace concept/keyword search.
+- OpenAlex and Semantic Scholar are graph backends in v0.1; Crossref is primarily a metadata/search source.
 
-## 8. Discovery sufficiency
+## 9. Discovery Readiness before finish
 
-There is **no universal paper-count threshold**. A niche topic and a broad topic require different corpus sizes. The final sufficiency decision belongs to the researcher.
+Run:
 
-For a defensible later gap claim, prefer evidence that discovery has:
+`lrc discover readiness . --json`
 
-- used multiple structured query families;
-- used multiple scholarly providers or explicitly recorded provider-access failures;
-- shown the researcher an early broad map before narrowing;
-- triaged a meaningful proportion of the retrieved universe;
-- gone through multiple researcher checkpoints when the topic is broad;
-- explored important provisional streams;
-- used focused follow-up searches where needed;
-- used citation/reference expansion around strong candidate papers where useful;
-- later verified important claims against fuller source evidence.
+The diagnostic reports, among other things:
 
-Use `lrc discover status .` and `lrc discover triage-status .` to inspect campaign and filtering progress.
+- providers that actually returned usable results;
+- successful query-family count;
+- saved Query Plans;
+- researcher review checkpoints;
+- focused follow-up retrieval;
+- triage coverage;
+- retained, unresolved, and untriaged records;
+- citation graph expansion;
+- provider failures;
+- coverage strengths and warnings.
 
-Only after the researcher explicitly chooses **finish** should downstream Research Landscape, Evidence Map, and Research Direction be treated as final-current.
+Do not convert this into a numeric score or universal sufficiency rule. A niche topic and a broad topic require different coverage. If the researcher chooses `finish`, the toolkit persists the readiness snapshot with the completion decision so downstream gap reasoning cannot silently forget known coverage limitations.
 
-## 9. Build the current Research Landscape only after discovery is finished
+## 10. Final Research Landscape gate
 
-After the researcher explicitly finishes discovery:
+Only after the researcher explicitly finishes discovery should the current Research Landscape be constructed.
 
-1. Verify `lrc discover status . --json` reports `complete`.
-2. Run:
+When the navigator returns `prepare_final_landscape`:
 
-   `lrc discover prepare-landscape . --json`
-
-3. Read `.litreview/packets/landscape.json`.
-4. The packet contains only the bounded retained triaged corpus (`relevant`, `background`, `adjacent`). `out_of_scope` papers are excluded. Unresolved/untriaged records remain visible as coverage warnings rather than silently becoming evidence.
-5. Synthesize anchors, streams, debates, methodological clusters, recent developments, and unresolved questions.
-6. Preserve `paper_id` references and discovery limitations.
-7. Save:
+1. Run `lrc discover prepare-landscape . --json`.
+2. Read `.litreview/packets/landscape.json`.
+3. Use only the retained triaged corpus (`relevant`, `background`, `adjacent`) represented in the packet.
+4. `out_of_scope` papers are excluded; unresolved/untriaged records remain coverage warnings.
+5. Identify anchors, meaningful streams, debates, methodological clusters, recent developments, and unresolved questions.
+6. Preserve paper IDs, discovery provenance, and limitations.
+7. Save the landscape:
 
    `lrc landscape save . --input .litreview/packets/landscape_submission.json`
 
-The final Research Landscape is a structured map of retained literature, not proof that every retrieved record was deeply read. It still must not assert a definitive research gap solely because something is absent from the bounded packet.
+Do not infer a definitive research gap solely from absence within the bounded landscape packet. The legacy `lrc landscape prepare` route is invalid once an iterative campaign exists because it does not apply campaign narrowing state.
 
-The legacy `lrc landscape prepare` path is not valid once an iterative discovery campaign exists because it does not apply campaign triage/narrowing state.
+## 11. Full text and Evidence Mapping
 
-## 10. Continue to Evidence Mapping
+After the post-discovery Research Landscape is saved, continue to Evidence Mapping.
 
-After the post-discovery Research Landscape is saved, construct or refresh the Evidence Map. Prefer core/anchor/relevant papers and selectively obtain fuller source text where detailed claims, contradictions, theories, methods, limitations, or candidate gaps require verification.
+- Prefer core/anchor/relevant papers for deeper verification.
+- Use `lrc fulltext reconcile .` after the researcher adds PDFs so metadata-only discovered records can be linked to verified local full text without destroying provenance.
+- Use `lrc fulltext status .` to identify priority retained papers still lacking full text.
+- Do not upload, move, rename, or delete external local PDFs without explicit authorization.
 
-Use `lrc fulltext reconcile .` after adding local PDFs so metadata-only discovered records can be linked to their local full text without destroying provenance. Use `lrc fulltext status .` to identify priority retained papers still lacking full text.
-
-Research Direction remains downstream of both the **researcher-finished discovery campaign** and a refreshed Evidence Map. Do not bypass these gates.
+Research Direction remains downstream of both the researcher-finished discovery campaign and a refreshed Evidence Map.
 
 ## Evidence discipline
 
-Provider metadata and abstracts are **discovery evidence**, not proof of detailed substantive findings. Do not infer causal results, precise methods, limitations, or research gaps from titles/metadata. Preserve provenance and defer detailed verification to Evidence Mapping/full text.
+Provider metadata and abstracts are **discovery evidence**, not proof of detailed substantive findings. Preserve provenance. Do not infer causal results, precise methods, limitations, or research gaps from titles/metadata. Detailed claims belong in Evidence Mapping and selective source verification.
 
 ## Context discipline
 
-The large discovery universe stays local in `.litreview/data/papers.jsonl`. AI receives bounded packets. Use title/abstract data for broad orientation and triage, then selectively load core/full-text papers only when the task genuinely requires them.
+The large corpus remains local in `.litreview/data/papers.jsonl`. AI receives bounded packets. Use title/abstract data for broad orientation and triage, then selectively load full texts only where the current evidence task requires them.
