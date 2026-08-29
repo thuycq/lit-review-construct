@@ -29,6 +29,13 @@ def _jsonl(root: Path, relative: str) -> list[dict[str, object]]:
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
+def _json(path: Path) -> dict[str, object] | None:
+    if not path.exists():
+        return None
+    value = json.loads(path.read_text(encoding="utf-8"))
+    return value if isinstance(value, dict) else None
+
+
 def _stage(state: dict[str, object], name: str) -> str:
     stages = state.get("stages") or {}
     assert isinstance(stages, dict)
@@ -116,18 +123,50 @@ def project_next_step(root: Path) -> dict[str, object]:
 
     evidence_status = _stage(state, "evidence_mapping")
     evidence_file = root / PROJECT_DIR / "data" / "evidence_map.json"
-    fulltext_resolution = root / PROJECT_DIR / "data" / "fulltext_resolution.json"
-    # For new projects, attempt lawful OA acquisition before the first Evidence Map. Existing
-    # evidence artifacts are not invalidated automatically merely because this capability was added.
-    if not evidence_file.exists() and not fulltext_resolution.exists():
+    fulltext_resolution_file = root / PROJECT_DIR / "data" / "fulltext_resolution.json"
+    evidence_map = _json(evidence_file)
+    fulltext_resolution = _json(fulltext_resolution_file)
+    papers_requiring_full_text = (
+        evidence_map.get("papers_requiring_full_text") or [] if evidence_map else []
+    )
+
+    # New projects acquire lawful OA full text before the first Evidence Map. Legacy projects that
+    # already have an abstract-heavy Evidence Map receive the same one-time OA pass before later
+    # Direction/Blueprint/Draft work instead of being permanently stuck at abstract level.
+    if fulltext_resolution is None and (
+        not evidence_file.exists() or bool(papers_requiring_full_text)
+    ):
+        reason = (
+            "A current Research Landscape exists. Resolve and acquire lawful OA full text for priority papers before constructing the first Evidence Map."
+            if not evidence_file.exists()
+            else "The existing Evidence Map still flags papers requiring full text and predates OA acquisition. Resolve lawful OA copies for priority papers before proceeding further."
+        )
         return {
             "next_action": "resolve_priority_full_text",
             "stage": "evidence_mapping",
             "skill": "litreview-fulltext",
             "human_checkpoint_required": False,
-            "reason": "A current Research Landscape exists. Resolve and acquire lawful OA full text for priority papers before constructing the first Evidence Map.",
+            "reason": reason,
             "commands": ["lrc fulltext acquire . --max-papers 30 --json"],
         }
+
+    # If a later OA pass actually downloaded new PDFs after an Evidence Map had already been saved,
+    # that map remains abstract-grounded until it is explicitly rebuilt. Timestamp ordering prevents
+    # an infinite refresh loop after the new Evidence Map is saved.
+    if evidence_map and fulltext_resolution and int(fulltext_resolution.get("downloaded") or 0) > 0:
+        evidence_saved_at = str(evidence_map.get("saved_at") or "")
+        resolved_at = str(fulltext_resolution.get("timestamp") or "")
+        if resolved_at and (not evidence_saved_at or resolved_at > evidence_saved_at):
+            return {
+                "next_action": "refresh_evidence_after_fulltext",
+                "stage": "evidence_mapping",
+                "skill": "litreview-map",
+                "human_checkpoint_required": False,
+                "reason": "New lawful OA full text was acquired after the current Evidence Map. Re-verify the affected evidence against the PDFs before downstream gap, direction, Blueprint, or draft claims are treated as current.",
+                "commands": ["lrc evidence prepare . --json"],
+                "downloaded_full_text": int(fulltext_resolution.get("downloaded") or 0),
+            }
+
     if not evidence_file.exists() or evidence_status in {"not_started", "in_progress", "needs_refresh", "blocked"}:
         return {
             "next_action": "construct_evidence_map",
