@@ -50,8 +50,14 @@ def _campaign(root: Path) -> dict[str, object]:
 def _rank(row: dict[str, object], selected_focuses: list[str]) -> tuple[int, int, int, int, int, str]:
     label_rank = {"relevant": 0, "background": 1, "adjacent": 2}
     priority_rank = {"core_candidate": 0, "high": 1, "medium": 2, "low": 3}
-    tags = " ".join(str(value).lower() for value in row.get("triage_stream_tags") or [])
-    focus_hit = 0 if any(focus.lower() in tags or tags in focus.lower() for focus in selected_focuses if focus) else 1
+    tags = " ".join(str(value).lower() for value in row.get("triage_stream_tags") or []).strip()
+    focus_hit = 1
+    if tags and selected_focuses:
+        if any(
+            focus.strip() and (focus.lower() in tags or tags in focus.lower())
+            for focus in selected_focuses
+        ):
+            focus_hit = 0
     sources = row.get("discovery_sources") if isinstance(row.get("discovery_sources"), list) else []
     return (
         label_rank.get(str(row.get("triage_label")), 9),
