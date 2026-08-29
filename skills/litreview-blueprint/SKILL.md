@@ -1,6 +1,6 @@
 ---
 name: litreview-blueprint
-description: Construct the Literature Review Blueprint after the researcher has accepted a Research Direction. Use when the researcher wants to organize the retained literature into section logic, arguments, theoretical foundations, evidence, contradictions, hypothesis/proposition support, verification priorities, and transitions without generating a complete submission-ready literature review.
+description: Construct the Literature Review Blueprint after the researcher has accepted a Research Direction. Use when the researcher wants to organize the retained literature into section logic, arguments, theoretical foundations, evidence, contradictions, hypothesis/proposition support, verification priorities, and transitions before a researcher-editable Working Draft is produced.
 license: MIT
 compatibility: Codex and OpenCode
 metadata:
@@ -14,9 +14,9 @@ Use this skill only after a Research Direction has been explicitly accepted by t
 
 ## Core product boundary
 
-The primary output is a **Literature Review Blueprint**, not the final literature review. The toolkit helps the researcher determine what each section must establish, which evidence and papers support it, how streams and contradictions relate, and how sections connect. The researcher remains responsible for final prose, source verification, citation selection, interpretation, and authorship.
+The Blueprint is the **accepted argument architecture** for the literature review. It determines what each section must establish, which evidence and papers support it, how streams and contradictions relate, and how sections connect. It is not yet the prose artifact.
 
-Do not produce a continuous, submission-ready literature review or a set of complete paragraphs that can simply be concatenated into one.
+After researcher acceptance, the workflow proceeds to the separate `litreview-draft` stage, which creates an evidence-linked researcher Working Draft. This separation keeps the architecture auditable before prose is generated.
 
 ## Workflow
 
@@ -30,7 +30,7 @@ Do not produce a continuous, submission-ready literature review or a set of comp
 5. Construct a coherent literature-review architecture around the selected research direction. Avoid paper-by-paper chronology unless the evidence genuinely requires it.
 6. For each proposed section, specify:
    - **purpose** — what this section must establish and why it is necessary;
-   - concise **key arguments**, not finished paragraphs;
+   - concise **key arguments**;
    - anchor papers;
    - supporting papers;
    - conflicting papers where relevant;
@@ -50,28 +50,16 @@ Do not produce a continuous, submission-ready literature review or a set of comp
 
    `lrc blueprint accept .`
 
-## Allowed assistance after Blueprint creation
+11. Resume with `lrc next . --json`. The normal next action is `construct_working_draft`, not immediate handoff.
 
-You may help with:
-- evidence summaries for a particular section;
-- argument-level draft fragments;
-- alternative phrasing for one argument;
-- transition options;
-- citation/source verification;
-- checking whether the researcher's own draft follows the Blueprint;
-- identifying missing evidence for a section.
-
-When such assistance occurs, ensure the relevant activity is recorded if the runtime supports that event category.
-
-## Prohibited output
+## Prohibited output at Blueprint stage
 
 Do not:
-- write the full final literature review;
-- generate all sections as polished publication-ready prose;
-- conceal uncertain or abstract-only evidence;
+- hide uncertain or abstract-only evidence;
 - invent citations, theories, methods, findings, or gaps;
 - turn an AI-suggested gap into an established fact;
-- overwrite the researcher-selected direction with a different AI preference.
+- overwrite the researcher-selected direction with a different AI preference;
+- silently skip Blueprint review and move into prose generation.
 
 ## Context discipline
 
