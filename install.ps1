@@ -2,7 +2,7 @@ $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
 $RepoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-$ExpectedVersion = "0.1.0.dev1"
+$ExpectedVersion = "0.1.0.dev2"
 Write-Host "Lit Review Construct installer"
 Write-Host "Repository: $RepoRoot"
 Write-Host "Runtime target: $ExpectedVersion"
