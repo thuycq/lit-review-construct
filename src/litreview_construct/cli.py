@@ -7,6 +7,12 @@ import httpx
 import typer
 
 from . import __version__
+from .direction import (
+    apply_direction_decision,
+    prepare_direction_packet,
+    save_direction_candidates,
+    show_direction,
+)
 from .discovery import search_history, search_openalex
 from .evidence import prepare_evidence_packet, save_evidence_map, show_evidence_map
 from .intent import accept_intent, set_intent, show_intent
@@ -21,11 +27,13 @@ seed_app = typer.Typer(help="Manage researcher-provided seed literature.")
 search_app = typer.Typer(help="Discover literature from scholarly providers.")
 landscape_app = typer.Typer(help="Prepare and persist the Research Landscape.")
 evidence_app = typer.Typer(help="Prepare and persist the provenance-aware Evidence Map.")
+direction_app = typer.Typer(help="Propose and decide the human-reviewed Research Direction.")
 app.add_typer(intent_app, name="intent")
 app.add_typer(seed_app, name="seed")
 app.add_typer(search_app, name="search")
 app.add_typer(landscape_app, name="landscape")
 app.add_typer(evidence_app, name="evidence")
+app.add_typer(direction_app, name="direction")
 
 
 @app.command()
@@ -366,6 +374,106 @@ def evidence_show(
         typer.echo("Evidence types:")
         for name, count in result["evidence_types"].items():
             typer.echo(f"  {name}: {count}")
+    typer.echo(f"Output: {result['output']}")
+
+
+@direction_app.command("prepare")
+def direction_prepare(
+    path: Path = typer.Argument(Path("."), help="Research workspace folder."),
+    max_evidence: int = typer.Option(
+        80,
+        "--max-evidence",
+        min=10,
+        max=200,
+        help="Maximum evidence records in the bounded direction packet.",
+    ),
+    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
+) -> None:
+    try:
+        result = prepare_direction_packet(path, max_evidence=max_evidence)
+    except (FileNotFoundError, ValueError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(json.dumps(result, ensure_ascii=False))
+        return
+    typer.echo(f"Evidence records in packet: {result['evidence_items']}")
+    typer.echo(f"Full-text verification flags: {result['full_text_verification_flags']}")
+    typer.echo(f"Direction packet: {result['packet_file']}")
+
+
+@direction_app.command("save")
+def direction_save(
+    input_file: Path = typer.Option(
+        ..., "--input", help="JSON file containing AI-assisted candidate Research Directions."
+    ),
+    path: Path = typer.Argument(Path("."), help="Research workspace folder."),
+    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
+) -> None:
+    try:
+        result = save_direction_candidates(path, input_file)
+    except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(json.dumps(result, ensure_ascii=False))
+        return
+    typer.echo(f"Research Direction: {result['status']}")
+    typer.echo(f"Revision: {result['revision']}")
+    typer.echo(f"Candidate directions: {result['directions']}")
+    typer.echo("Human decision required: True")
+    typer.echo(f"Output: {result['output']}")
+
+
+@direction_app.command("decide")
+def direction_decide(
+    input_file: Path = typer.Option(
+        ..., "--input", help="JSON file recording the researcher's select/modify/combine/reject decision."
+    ),
+    path: Path = typer.Argument(Path("."), help="Research workspace folder."),
+    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
+) -> None:
+    try:
+        result = apply_direction_decision(path, input_file)
+    except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(json.dumps(result, ensure_ascii=False))
+        return
+    typer.echo(f"Research Direction: {result['status']}")
+    typer.echo(f"Decision: {result['action']}")
+    if result["selected"]:
+        typer.echo(f"Selected/refined direction: {result['selected']}")
+    typer.echo(f"Output: {result['output']}")
+
+
+@direction_app.command("show")
+def direction_show(
+    path: Path = typer.Argument(Path("."), help="Research workspace folder."),
+    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
+) -> None:
+    try:
+        result = show_direction(path)
+    except FileNotFoundError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(json.dumps(result, ensure_ascii=False))
+        return
+    typer.echo(f"Research Direction: {result['status']}")
+    typer.echo(f"Revision: {result['revision']}")
+    for number, row in enumerate(result["directions"], start=1):
+        typer.echo(
+            f"  {number}. {row['title']} | id={row['direction_id']} | "
+            f"status={row['status']} | confidence={row['confidence']} | difficulty={row['difficulty']}"
+        )
+    typer.echo(f"Human decision required: {result['human_decision_required']}")
+    if result["decision"] and result["decision"].get("selected_direction"):
+        typer.echo(
+            "Selected/refined direction: "
+            + str(result["decision"]["selected_direction"].get("title"))
+        )
     typer.echo(f"Output: {result['output']}")
 
 
