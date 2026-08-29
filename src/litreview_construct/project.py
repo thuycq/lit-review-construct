@@ -20,7 +20,7 @@ STAGES = [
     "researcher_handoff",
 ]
 
-AGENTS_TEXT = """# Lit Review Construct Project\n\nThis folder is a Lit Review Construct research workspace.\n\n## Project rules\n\n- Treat `.litreview/` as the authoritative project state.\n- Use the `lrc` runtime for structured project operations when available.\n- Preserve source and evidence provenance.\n- Persist important research decisions and outputs in the project rather than relying on conversation history.\n- AI may assist with search, synthesis, evidence organization, research-direction reasoning, and literature-review architecture.\n- Do not generate a complete final literature review intended for direct submission. The researcher remains responsible for scholarly judgment, verification, authorship, final prose, citation selection, accuracy, and research integrity.\n"""
+AGENTS_TEXT = """# Lit Review Construct Project\n\nThis folder is a Lit Review Construct research workspace.\n\n## Project rules\n\n- Treat `.litreview/` as the authoritative project state.\n- Use the globally installed `lrc` runtime for structured project operations when available.\n- Do not create a project-local Python environment (`.venv`, `venv`) just to run Lit Review Construct. If `lrc` is missing or outdated, update/reinstall the toolkit from its installation repository instead.\n- Preserve source and evidence provenance.\n- Persist important research decisions and outputs in the project rather than relying on conversation history.\n- AI may assist with search, synthesis, evidence organization, research-direction reasoning, and literature-review architecture.\n- Do not generate a complete final literature review intended for direct submission. The researcher remains responsible for scholarly judgment, verification, authorship, final prose, citation selection, accuracy, and research integrity.\n"""
 
 
 def _now() -> str:
@@ -168,5 +168,18 @@ def doctor(root: Path) -> list[dict[str, str]]:
                 "detail": str(path),
             }
         )
+
+    local_envs = [name for name in (".venv", "venv") if (root / name).exists()]
+    checks.append(
+        {
+            "check": "project_local_python_env",
+            "status": "WARNING" if local_envs else "OK",
+            "detail": (
+                "Project-local environment detected: " + ", ".join(local_envs)
+                if local_envs
+                else "No project-local Python environment required by Lit Review Construct."
+            ),
+        }
+    )
 
     return checks
