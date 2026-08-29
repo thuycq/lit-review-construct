@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "lit-review-construct"
-version = "0.1.0.dev2"
+version = "0.1.0.dev3"
 description = "Local-first literature review construction toolkit"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -17,6 +17,7 @@ dependencies = [
   "rich>=14,<15",
   "pypdf>=5.9,<6",
   "rapidfuzz>=3.13,<4",
+  "httpx>=0.28,<1",
 ]
 
 [project.optional-dependencies]
