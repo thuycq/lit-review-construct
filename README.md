@@ -10,7 +10,7 @@ It does **not** generate a complete final literature review for direct submissio
 
 **`0.1.0b1`**
 
-This beta incorporates findings from the first full end-to-end benchmark, especially repeated technical checkpoints, refine loops, developer-oriented chat output, full-text status ambiguity, hidden PDF storage, missing EndNote handoff, and stale next-step suggestions.
+This beta incorporates findings from the first full end-to-end benchmark, especially repeated technical checkpoints, refine loops, developer-oriented chat output, full-text status ambiguity, hidden PDF storage, missing EndNote handoff, stale next-step suggestions, and an overly technical Word handoff.
 
 ## Researcher experience
 
@@ -28,7 +28,7 @@ The production-facing journey is organized around a small number of genuine scho
 2. **Discovery Focus** — broad retrieval + early map are built; researcher chooses/adjusts the scholarly focus or scope.
 3. **Research Direction** — after technical narrowing, Research Landscape, lawful OA coverage, and Evidence Mapping, researcher selects/modifies/combines/rejects candidate directions.
 4. **Literature Review Blueprint** — AI constructs and quality-checks the argument/evidence architecture; researcher accepts or revises it.
-5. **Researcher Handoff** — bounded Working Draft fragments and the researcher-facing paper/reference/Word package are prepared; researcher verifies sources and authors the final review.
+5. **Researcher Handoff** — bounded Working Draft fragments and the researcher-facing paper/reference/Writing Pack are prepared; researcher verifies sources and authors the final review.
 
 Technical work such as deduplication, batching, progressive triage, citation chaining, OA resolution, evidence refresh, consistency checks, claim-strength checks, file packaging, and formatting should proceed automatically between these checkpoints.
 
@@ -65,11 +65,24 @@ Research_Project/
 │   ├── 05_research_direction.md
 │   ├── 06_literature_review_blueprint.md
 │   ├── 06b_literature_review_working_draft.md
-│   └── LitReview_Researcher_Handoff.docx
+│   └── LitReview_Researcher_Writing_Pack.docx
 └── .litreview/          # authoritative machine state/cache
 ```
 
 Researchers should normally work with `papers/`, `references/`, and `outputs/` rather than browsing `.litreview/`.
+
+### Researcher Writing Pack
+
+The final Word file is deliberately **not** a concatenation of every workflow artifact. It is organized from the perspective of a researcher who needs to finish the literature review:
+
+1. research focus and selected direction;
+2. accepted literature-review structure and what each section should establish;
+3. actual researcher-editable Working Draft fragments;
+4. source-verification checklist using paper titles rather than internal IDs;
+5. remaining synthesis/writing tasks;
+6. working references plus pointers to the EndNote and paper folders.
+
+Runtime state, JSON, paper/evidence IDs, provider diagnostics, discovery logs, test output, technical provenance, and the optional AI-use statement are intentionally excluded from this Word file. Those remain available separately for audit/debug purposes.
 
 ### Paper naming
 
@@ -139,8 +152,10 @@ The installed wrappers include:
 
 The toolkit can generate an optional AI-use statement from activities actually recorded in the project. It must not claim AI performed tasks that are absent from the activity log. Deterministic metadata/indexing operations remain distinguishable from AI-assisted synthesis/draft fragments.
 
+The AI-use statement is a separate optional artifact and is **not inserted into the Researcher Writing Pack** by default.
+
 ## Development and beta testing
 
-Automated tests run on Windows and Ubuntu. Beta-specific regressions cover researcher workspace structure, DOI-safe naming, EndNote export, OA coverage cursoring, bounded discovery refinement/saturation, tolerant JSONL loading, natural-language next-step guidance, and Working Draft claim-strength rules.
+Automated tests run on Windows and Ubuntu. Beta-specific regressions cover researcher workspace structure, DOI-safe naming, EndNote export, OA coverage cursoring, bounded discovery refinement/saturation, tolerant JSONL loading, natural-language next-step guidance, Working Draft claim-strength rules, and researcher-facing Word handoff content.
 
 See **`BETA_READINESS.md`** for beta scope, known limitations, and tester expectations.
