@@ -10,12 +10,12 @@ from .campaign import (
     discovery_status,
     prepare_discovery_review,
     record_discovery_decision,
-    run_discovery_iteration,
     save_discovery_review,
     start_discovery_campaign,
 )
 from .cli import app
 from .expansion import expand_citation_graph
+from .resilient import run_resilient_discovery_iteration
 from .triage import (
     prepare_narrowing_review,
     prepare_triage_batch,
@@ -82,11 +82,11 @@ def discover_run(
         typer.echo("phase must be broad, focused, or citation_expansion", err=True)
         raise typer.Exit(code=1)
     try:
-        result = run_discovery_iteration(
+        result = run_resilient_discovery_iteration(
             path,
             query,
             providers=provider,
-            phase=phase,  # type: ignore[arg-type]
+            phase=phase,
             max_per_query_provider=max_per_query_provider,
         )
     except (FileNotFoundError, ValueError, httpx.HTTPError) as exc:
@@ -98,7 +98,8 @@ def discover_run(
     typer.echo(f"Discovery iteration: {result['iteration_id']}")
     typer.echo(f"Phase: {result['phase']}")
     typer.echo(f"Query families: {result['queries']}")
-    typer.echo(f"Providers: {result['providers']}")
+    typer.echo(f"Providers requested: {result['providers_requested']}")
+    typer.echo("Providers succeeded: " + ", ".join(result["providers_succeeded"]))
     typer.echo(f"Raw provider records: {result['raw_results']}")
     typer.echo(f"New indexed records: {result['new_records']}")
     typer.echo(f"Existing records enriched: {result['existing_records_enriched']}")
@@ -106,6 +107,13 @@ def discover_run(
     typer.echo(f"Bibliographic relation candidates: {result['relation_candidates']}")
     if result["language_unknown"]:
         typer.echo(f"Records with unknown provider language metadata: {result['language_unknown']}")
+    if result["provider_failures"]:
+        typer.echo("Provider warnings:")
+        for failure in result["provider_failures"]:
+            status = f" HTTP {failure['status_code']}" if failure.get("status_code") else ""
+            typer.echo(
+                f"  - {failure['provider']}: {failure['error_type']}{status}; other providers were retained."
+            )
 
 
 @discover_app.command("prepare-triage")
@@ -113,7 +121,11 @@ def discover_prepare_triage(
     path: Path = typer.Argument(Path("."), help="Research workspace folder."),
     batch_size: int = typer.Option(100, "--batch-size", min=20, max=200),
     abstract_chars: int = typer.Option(1600, "--abstract-chars", min=200, max=4000),
-    revisit: bool = typer.Option(False, "--revisit", help="Re-triage papers already classified in this campaign."),
+    revisit: bool = typer.Option(
+        False,
+        "--revisit",
+        help="Re-triage papers already classified in this campaign.",
+    ),
     json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
 ) -> None:
     try:
@@ -137,7 +149,11 @@ def discover_prepare_triage(
 
 @discover_app.command("save-triage")
 def discover_save_triage(
-    input_file: Path = typer.Option(..., "--input", help="JSON file containing AI triage classifications."),
+    input_file: Path = typer.Option(
+        ...,
+        "--input",
+        help="JSON file containing AI triage classifications.",
+    ),
     path: Path = typer.Argument(Path("."), help="Research workspace folder."),
     json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
 ) -> None:
