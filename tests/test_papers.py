@@ -17,7 +17,7 @@ def _make_pdf(path: Path, title: str = "Seed Paper") -> None:
 
 def test_seed_scan_indexes_pdf_and_creates_inventory(tmp_path: Path) -> None:
     init_project(tmp_path, name="Seed Test")
-    pdf = tmp_path / "papers" / "seed.pdf"
+    pdf = tmp_path / "papers" / "user_uploads" / "seed.pdf"
     _make_pdf(pdf)
 
     result = scan_seed_papers(tmp_path)
@@ -29,13 +29,15 @@ def test_seed_scan_indexes_pdf_and_creates_inventory(tmp_path: Path) -> None:
     assert record["title"] == "Seed Paper"
     assert record["location_type"] == "managed"
     assert record["status"] == "user_seed"
+    assert "papers/user_uploads" in record["file_reference"].replace("\\", "/")
     assert (tmp_path / "outputs" / "02_seed_inventory.md").is_file()
 
 
 def test_seed_scan_deduplicates_exact_file_hash(tmp_path: Path) -> None:
     init_project(tmp_path)
-    first = tmp_path / "papers" / "first.pdf"
-    second = tmp_path / "papers" / "second.pdf"
+    upload_dir = tmp_path / "papers" / "user_uploads"
+    first = upload_dir / "first.pdf"
+    second = upload_dir / "second.pdf"
     _make_pdf(first)
     second.write_bytes(first.read_bytes())
 
@@ -45,7 +47,6 @@ def test_seed_scan_deduplicates_exact_file_hash(tmp_path: Path) -> None:
     assert first_result["pdfs_detected"] == 2
     assert first_result["records_total"] == 1
     assert first_result["duplicate_files"] == 1
-    # Duplicate count describes the scanned source, so it stays stable on re-scan.
     assert second_result["duplicate_files"] == 1
     assert second_result["records_total"] == 1
 
