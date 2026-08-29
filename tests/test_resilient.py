@@ -70,6 +70,7 @@ def test_one_provider_failure_does_not_discard_other_sources(tmp_path: Path, mon
     assert "semantic_scholar" in result["providers_succeeded"]
     assert result["provider_failures"][0]["provider"] == "openalex"
     assert result["provider_failures"][0]["error_type"] == "authentication_or_access"
+    assert result["provenance_hits_attached"] == 4
     # OpenAlex should be skipped for the second query after an auth/access failure.
     campaign_data = json.loads(
         (root / ".litreview" / "data" / "discovery_campaign.json").read_text(encoding="utf-8")
@@ -87,3 +88,9 @@ def test_one_provider_failure_does_not_discard_other_sources(tmp_path: Path, mon
         if line.strip()
     ]
     assert {row["doi"] for row in papers} == {"10.1000/crossref", "10.1000/s2"}
+    assert all(len(row["discovery_hits"]) == 2 for row in papers)
+    assert {
+        hit["query"]
+        for row in papers
+        for hit in row["discovery_hits"]
+    } == {"working capital", "cash conversion cycle"}
