@@ -127,7 +127,7 @@ def test_project_next_routes_accepted_direction_to_blueprint(tmp_path: Path) -> 
     assert step["human_checkpoint_required"] is False
 
 
-def test_project_next_never_generates_final_review_after_blueprint_acceptance(tmp_path: Path) -> None:
+def test_project_next_builds_working_draft_before_final_handoff(tmp_path: Path) -> None:
     _accepted_intent(tmp_path)
     skip_seed_literature(tmp_path)
     state_root = tmp_path / ".litreview"
@@ -146,9 +146,20 @@ def test_project_next_never_generates_final_review_after_blueprint_acceptance(tm
     state_file.write_text(json.dumps(state), encoding="utf-8")
 
     step = project_next_step(tmp_path)
-    assert step["next_action"] == "researcher_handoff"
-    assert step["prohibited_next_step"] == "generate_complete_final_literature_review"
-    assert "ai-use" in " ".join(step["optional_commands"])
+    assert step["next_action"] == "construct_working_draft"
+    assert step["skill"] == "litreview-draft"
+    assert step["human_checkpoint_required"] is False
+
+    (state_root / "data" / "working_draft.json").write_text(
+        json.dumps({"title": "Researcher Working Draft", "sections": []}), encoding="utf-8"
+    )
+    handoff = project_next_step(tmp_path)
+    assert handoff["next_action"] == "researcher_handoff"
+    assert handoff["human_checkpoint_required"] is True
+    assert handoff["prohibited_next_step"] == "present_unverified_ai_draft_as_submission_ready_final_review"
+    commands = " ".join(handoff["optional_commands"])
+    assert "ai-use" in commands
+    assert "export docx" in commands
 
 
 def test_cli_exposes_project_next_and_seed_decisions() -> None:
