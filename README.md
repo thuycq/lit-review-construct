@@ -2,17 +2,50 @@
 
 **Build the literature behind your study — without handing authorship to AI.**
 
-**Current beta:** **`0.1.0b1`**
+**Current beta:** **`0.1.0b2`**
 
 Lit Review Construct is a local-first toolkit that helps researchers **find, understand, organize, and structure the literature for a research project**.
 
-It is designed for researchers who want AI assistance with literature discovery and synthesis, but still want to keep the important academic decisions — source verification, interpretation, research direction, citation choice, and final writing — under human control.
+It is designed for researchers who want AI assistance with literature discovery and synthesis while keeping the important academic decisions — source verification, interpretation, research direction, citation choice, and final writing — under human control.
 
-The toolkit currently supports **Codex** and **OpenCode** on Windows.
+The beta supports **Windows and macOS** and can be used with several AI hosts.
 
 ---
 
-## What Lit Review Construct does
+# What is an “AI host”?
+
+An **AI host** is the app or agent you work in. Examples include Codex, OpenCode, Claude Code, Cursor, Windsurf, Gemini CLI, GitHub Copilot, and Cline.
+
+The **model/provider** is the AI service used inside that host. For example, a host may use OpenAI, Anthropic, Google, or another model provider.
+
+Lit Review Construct integrates with the **host**. It does not force you to use one particular model or provider.
+
+Your host account, subscription, API key, free tier, usage limit, and model choice remain managed by that host/provider.
+
+---
+
+# Supported AI hosts
+
+The current beta installs adapters for:
+
+| AI host | LRC beta support | How LRC is recognized |
+|---|---|---|
+| **Codex** | Supported | Global Lit Review Construct skills + project `AGENTS.md` |
+| **OpenCode** | Supported | Global skills + `/lr` shortcut |
+| **Claude Code** | Supported | Global skills + `/lr` shortcut |
+| **Cursor** | Supported | Agent Skills + project `AGENTS.md` |
+| **Windsurf** | Supported | Agent Skills + project `AGENTS.md` |
+| **Gemini CLI** | Supported | `/lr` shortcut + gated `GEMINI.md` context |
+| **GitHub Copilot** | Supported | Agent Skills + project `AGENTS.md` |
+| **Cline** | Supported in beta | Global skills; Cline Skills must be enabled |
+
+The same Lit Review Construct core workflow is used across all hosts. Host adapters only tell each agent how to find and follow that workflow.
+
+This means the project is not rewritten separately for each AI product.
+
+---
+
+# What Lit Review Construct does
 
 Lit Review Construct can help you:
 
@@ -22,13 +55,13 @@ Lit Review Construct can help you:
 - progressively filter a large literature set without requiring you to screen every paper;
 - follow citations and references from important papers;
 - collect lawful open-access full text when available;
-- organize evidence from papers while keeping track of how strong that evidence is;
-- compare possible research directions;
+- organize source-linked evidence while keeping uncertainty visible;
+- compare possible Research Directions;
 - build a Literature Review Blueprint;
-- create short, editable Working Draft fragments to help you begin writing;
+- create short, editable Working Draft fragments;
 - prepare a researcher-facing paper library;
-- export the references currently used in the review to EndNote;
-- prepare a Word **Researcher Writing Pack** that brings together what you need to finish the literature review;
+- export working references to EndNote;
+- prepare a Word **Researcher Writing Pack** containing what you need to finish the literature review;
 - optionally generate an AI-use statement based only on AI activities actually recorded in the project.
 
 ## What it does **not** do
@@ -38,10 +71,10 @@ Lit Review Construct is **not** designed to:
 - write a complete submission-ready literature review for you;
 - make final scholarly judgments on your behalf;
 - guarantee that every paper in the world has been found;
-- perform a PRISMA/systematic review workflow in the current beta;
-- treat an abstract as equivalent to a verified full-text finding;
+- perform a PRISMA/systematic-review workflow in the current beta;
+- treat an abstract as equivalent to a checked full-text finding;
 - bypass paywalls, logins, CAPTCHAs, or publisher access controls;
-- automatically claim that a research gap is globally new.
+- automatically claim that a proposed research gap is globally new.
 
 The final literature review remains **researcher-authored**.
 
@@ -49,17 +82,22 @@ The final literature review remains **researcher-authored**.
 
 # Quick start
 
-If you already have Codex or OpenCode installed, the basic setup is:
+The basic setup is the same regardless of AI host.
 
-1. Download or clone this repository once.
-2. Double-click **`install.bat`**.
-3. Create a new folder for your research project.
-4. Open that research folder in Codex or OpenCode.
-5. Start Lit Review Construct with a normal-language request.
+1. Install the AI host you want to use.
+2. Download or clone Lit Review Construct once.
+3. Install Lit Review Construct on your computer.
+4. Create a new folder for one research project.
+5. Open that research folder in your AI host.
+6. Start with a normal-language request.
 
-Example:
+Universal start prompt:
 
-> **Start a new Lit Review Construct project. Help me define the scope of my literature review before searching.**
+> **Start a new Lit Review Construct project in this folder. Help me define the Research Intent before you begin searching.**
+
+Universal resume prompt:
+
+> **Continue this Lit Review Construct project from its saved state. Do not repeat completed work. Continue technical steps automatically and stop only when you need a research decision from me.**
 
 You do **not** need to copy the toolkit into every research project.
 
@@ -69,119 +107,131 @@ You do **not** need to copy the toolkit into every research project.
 
 ## Recommended environment
 
-The current beta is designed primarily for:
+The beta currently targets:
 
-- **Windows 10 or Windows 11**;
+- **Windows 10/11** or a current **macOS** release;
 - an internet connection for literature search and lawful open-access retrieval;
-- either **Codex** or **OpenCode** as the AI host;
-- optional EndNote if you want to import the generated reference file.
+- at least one supported AI host;
+- optional EndNote if you want to import the generated `.enw` file.
 
-You do **not** need to install Python manually. The Lit Review Construct installer handles its own Python runtime through `uv`.
+You do **not** need to install Python manually. The installer provisions the Python runtime through `uv`.
 
 ---
 
-# Option A — Use Lit Review Construct with Codex
+# Step 1 — Install an AI host
 
-Codex is available through OpenAI and can be used from the desktop app, web, CLI, or IDE. For this beta, the easiest path is to use **Codex on the desktop and open your research folder as the working folder**.
+You only need **one** supported host. Installing several is optional.
 
-Official Codex information:
+## Codex
+
+Official information:
 
 - https://openai.com/codex/
 - https://help.openai.com/en/articles/11369540-using-codex-with-your-chatgpt-plan
 
-## Install and prepare Codex
+Install/sign in to Codex using your OpenAI/ChatGPT setup, then open your research folder as the working folder.
 
-1. Install or open the ChatGPT/Codex desktop experience for Windows.
-2. Sign in with your ChatGPT account.
-3. Confirm that you can open Codex and work with a local folder.
-4. Install Lit Review Construct using `install.bat` as described below.
-5. Close and reopen Codex after the Lit Review Construct installation.
-6. Create or choose a dedicated research folder and open that folder in Codex.
+Start LRC with the universal start prompt above.
 
-Then start with:
+## OpenCode
 
-> **Start a new Lit Review Construct project in this folder. Help me define the Research Intent before you begin searching.**
-
-For an existing project, use:
-
-> **Continue this Lit Review Construct project from its saved state. Do not repeat completed steps, and only stop when you need a research decision from me.**
-
-Lit Review Construct uses the access already available through your Codex/ChatGPT setup. It does not store your ChatGPT password or account credentials inside the research project.
-
----
-
-# Option B — Use Lit Review Construct with OpenCode
-
-OpenCode is an open-source AI coding agent that can run in a terminal, desktop app, or IDE environment.
-
-Official OpenCode documentation:
+Official documentation:
 
 - https://opencode.ai/docs/
 
-## Install OpenCode on Windows
+OpenCode supports multiple model providers. Configure the provider you want through OpenCode, for example with `/connect`.
 
-For the Lit Review Construct beta, the simplest tested setup is **OpenCode running directly in Windows**, because `install.bat` installs the Lit Review Construct skills and commands into your Windows user profile.
-
-You can install OpenCode using one of the methods documented by OpenCode.
-
-### Using npm
-
-```powershell
-npm install -g opencode-ai
-```
-
-### Using Chocolatey
-
-```powershell
-choco install opencode
-```
-
-### Using Scoop
-
-```powershell
-scoop install opencode
-```
-
-OpenCode's official documentation also recommends WSL for some Windows use cases. WSL is a separate environment from native Windows. If you choose to run OpenCode inside WSL, Lit Review Construct must also be installed inside that WSL environment rather than relying on the Windows installation.
-
-## Connect a model provider
-
-OpenCode needs access to an AI model provider.
-
-1. Start OpenCode.
-2. Use OpenCode's `/connect` command.
-3. Choose the provider you want to use.
-4. Follow OpenCode's authentication instructions.
-
-Lit Review Construct does not require a particular provider. Model quality, limits, and cost depend on the provider and model you choose.
-
-## Start a Lit Review Construct project in OpenCode
-
-After installing Lit Review Construct:
-
-1. Close and reopen OpenCode.
-2. Open your dedicated research folder in OpenCode.
-3. Type:
+After Lit Review Construct is installed, open your research folder and type:
 
 ```text
 /lr
 ```
 
-If the folder is new, `/lr` should start the Lit Review Construct workflow.
+`/lr` starts a new LRC project in a new folder or resumes the saved project if one already exists.
 
-If the folder already contains a Lit Review Construct project, `/lr` should continue from the saved project state.
+## Claude Code
 
-You can also use a normal prompt instead:
+Official documentation:
 
-> **Continue this Lit Review Construct project from its saved state. Only stop when you need a research decision from me.**
+- https://code.claude.com/docs/
+
+Claude Code supports reusable Agent Skills and project instructions. The Lit Review Construct installer adds the LRC skills to Claude Code and provides:
+
+```text
+/lr
+```
+
+You may also use the universal start/resume prompts instead.
+
+## Cursor
+
+Official documentation:
+
+- https://cursor.com/docs/
+
+Cursor Agent supports Agent Skills and reads `AGENTS.md` from a project. The LRC installer adds the skills globally.
+
+Open the research folder in Cursor Agent and use the universal start prompt.
+
+## Windsurf
+
+Official documentation:
+
+- https://docs.windsurf.com/
+
+Windsurf Cascade supports Agent Skills and project `AGENTS.md` instructions. The LRC installer adds the skills globally.
+
+Open the research folder and use the universal start prompt.
+
+## Gemini CLI
+
+Official documentation:
+
+- https://google-gemini.github.io/gemini-cli/
+
+Gemini CLI provides local file/shell tools, project context files, and custom commands. The LRC installer adds a gated Lit Review Construct context plus:
+
+```text
+/lr
+```
+
+and:
+
+```text
+/lr-status
+```
+
+The global Gemini integration activates only inside an existing LRC project or when you explicitly ask to start LRC.
+
+## GitHub Copilot
+
+Official documentation:
+
+- https://docs.github.com/en/copilot/
+
+GitHub Copilot Agent/CLI supports `AGENTS.md` and Agent Skills. The LRC installer installs a compatible global skill set.
+
+Open the research folder in a Copilot agent-capable environment and use the universal start prompt.
+
+## Cline
+
+Official documentation:
+
+- https://docs.cline.bot/
+
+Cline supports global Agent Skills, but its Skills feature is currently an experimental feature. Enable **Skills** in Cline Settings → Features before beta testing LRC.
+
+Then open the research folder and use the universal start prompt.
 
 ---
 
-# Install Lit Review Construct
+# Step 2 — Install Lit Review Construct
 
-You only need to install the toolkit **once per computer/environment**.
+You install the toolkit **once per computer/environment**, not once per research project.
 
-## Method 1 — Download ZIP
+## Windows
+
+### Download ZIP
 
 1. Download the repository ZIP from GitHub.
 2. Extract it to a permanent folder, for example:
@@ -196,76 +246,113 @@ C:\Tools\literature-review-construct\
 install.bat
 ```
 
-## Method 2 — Clone with Git
+### Clone with Git
 
 ```powershell
 git clone https://github.com/thuycq/literature-review-construct.git
 cd literature-review-construct
 ```
 
-Then double-click `install.bat`, or run it from Windows.
+Then double-click `install.bat` or run it from the toolkit folder.
+
+## macOS
+
+### Download ZIP
+
+1. Download the repository ZIP from GitHub.
+2. Extract it to a permanent folder, for example:
+
+```text
+~/Tools/literature-review-construct/
+```
+
+3. Open Terminal in the toolkit folder and run:
+
+```bash
+bash install.sh
+```
+
+### Clone with Git
+
+```bash
+git clone https://github.com/thuycq/literature-review-construct.git
+cd literature-review-construct
+bash install.sh
+```
+
+Using `bash install.sh` avoids requiring executable-file permissions on a ZIP download.
 
 ## What the installer does
 
-The installer automatically:
+The Windows and macOS installers:
 
-- prepares the Python runtime required by Lit Review Construct;
-- installs the `lrc` runtime command;
-- installs Lit Review Construct skills for Codex;
-- installs Lit Review Construct skills for OpenCode;
-- installs the OpenCode `/lr` helper command.
+- install/provision Python 3.12 through `uv`;
+- install the global `lrc` runtime;
+- install the same canonical LRC skills for supported Agent-Skills hosts;
+- install OpenCode `/lr` commands;
+- install Claude Code `/lr`;
+- install Gemini CLI `/lr` and `/lr-status` plus a gated global context;
+- preserve the activation rule: **globally installed does not mean globally active**.
 
-After installation, close and reopen Codex/OpenCode so the host can see the new skills and commands.
+The installer does **not** install or sign you into the AI hosts themselves.
 
-### Optional installation check
+After installation, close and reopen your AI host so it reloads skills/commands.
 
-Open PowerShell and run:
+### Installation check
 
-```powershell
+Open PowerShell or Terminal and run:
+
+```text
 lrc version
 ```
 
-For this beta, the expected result is:
+Expected beta version:
 
 ```text
-0.1.0b1
+0.1.0b2
 ```
 
-Most researchers do not need to use the `lrc` command directly during normal work.
+Most researchers do not need to run `lrc` directly during normal use.
 
 ---
 
 # Toolkit folder vs. research folder
 
-This distinction is important.
+The **toolkit folder** is where Lit Review Construct itself lives.
 
-The **toolkit folder** is where Lit Review Construct is installed from:
+Windows example:
 
 ```text
 C:\Tools\literature-review-construct\
 ```
 
-Your **research folder** is the folder for one specific study:
+macOS example:
 
 ```text
-D:\Research\Bank_Efficiency_Project\
+~/Tools/literature-review-construct/
+```
+
+A **research folder** is one specific study:
+
+```text
+Research/Bank_Efficiency_Project/
 ```
 
 For another study, create another folder:
 
 ```text
-D:\Research\Working_Capital_Project\
+Research/Working_Capital_Project/
 ```
 
-You do **not** need a new copy of the Lit Review Construct repository for every study.
+Do not clone Lit Review Construct separately for each study.
 
 Think of it like this:
 
 ```text
 Lit Review Construct toolkit
         ↓ installed once
-Codex / OpenCode
-        ↓ works with
+Supported AI host
+        ↓ opens
 Research Project A
 Research Project B
 Research Project C
@@ -281,9 +368,9 @@ You can begin with only a topic. You do not need a perfect research question bef
 
 > **Start a new Lit Review Construct project. My topic is financial liberalization and bank efficiency in Vietnam. Help me define the literature scope before searching.**
 
-## More structured start
+## Structured start
 
-> **Start a new Lit Review Construct project using the following brief. Help me check the scope first, then continue with literature discovery.**
+> **Start a new Lit Review Construct project using the following brief. Use what I already provide, ask only for missing information that materially affects the literature search, and then continue with the workflow.**
 >
 > **Topic:**  
 > **Research question or early idea:**  
@@ -296,215 +383,148 @@ You can begin with only a topic. You do not need a perfect research question bef
 
 You can leave fields blank if you do not know them yet.
 
-The toolkit should ask only for information that materially affects the literature search.
-
 ---
 
 # If you already have papers
 
-After the project is initialized, Lit Review Construct creates:
+After initialization, the project contains:
 
 ```text
 papers/user_uploads/
 ```
 
-Place your existing PDF papers there.
+Place your existing PDFs there, then say:
 
-Then say:
+> **I added papers to `papers/user_uploads`. Scan them as seed literature, preserve the original files, and do not assume they are all relevant.**
 
-> **I have added some papers to `papers/user_uploads`. Please scan them as seed literature. Do not assume every uploaded paper is relevant; use them as starting points for discovery.**
-
-The toolkit will keep your original files unchanged.
-
-If you do not have any papers, simply say so when asked and continue.
+Researcher-provided papers are starting material, not automatically core evidence.
 
 ---
 
 # How the workflow works
 
-Lit Review Construct does a lot of technical work internally, but the researcher should only need to make a small number of meaningful academic decisions.
+Lit Review Construct handles technical work internally, while the researcher makes the decisions that require academic judgment.
 
 ## 1. Research Intent
 
-You confirm what literature the project should study.
-
-Typical decisions:
-
-- topic or research question;
-- publication period;
-- language scope;
-- geographic or institutional scope when relevant;
-- important inclusion/exclusion boundaries.
-
-The toolkit should not begin broad discovery until the Research Intent is clear enough.
-
----
+You confirm what literature the project should study: topic/question, publication period, language, relevant geographic/institutional scope, and important inclusion/exclusion boundaries.
 
 ## 2. Discovery Focus
 
-The toolkit searches broadly first and gives you an early map of the literature.
+The toolkit searches broadly and gives you an early map of the literature. You decide which research streams or perspectives should be prioritized.
 
-You then decide which research streams or perspectives are most useful for your study.
+After that, LRC can automatically handle technical narrowing such as:
 
-After that, the toolkit can automatically handle technical narrowing such as:
+- deduplication;
+- priority triage;
+- citation/reference chaining;
+- reassessing marginal search gain;
+- deciding when another technical refinement batch is no longer useful.
 
-- removing duplicates;
-- prioritizing likely-relevant studies;
-- following citations and references from strong papers;
-- checking whether additional search rounds are still adding useful literature.
+You should not need to approve every refine batch.
 
-You should **not** need to approve every technical refinement round.
+Useful prompt:
 
-A useful prompt at this stage is:
+> **Show me the main research streams found so far, explain how they differ, recommend the strongest focus options for my study, and let me decide.**
 
-> **Show me the main research streams you found, explain how they differ, recommend the strongest focus options for my study, and let me choose.**
+When the literature looks sufficiently developed:
 
-When the literature seems sufficient for a narrative review, you can say:
+> **Assess whether the current literature is sufficient for a narrative review. If it is, recommend finishing discovery and building the Research Landscape. If not, explain only what is materially missing.**
 
-> **If the current literature is sufficiently developed for a narrative review, finish discovery and construct the Research Landscape. If not, explain what is still materially missing.**
-
-The researcher still makes the final decision to finish discovery.
-
----
+The researcher still decides whether discovery is sufficient.
 
 ## 3. Research Landscape and Evidence Map
 
-Once discovery is finished, Lit Review Construct organizes the retained literature into a Research Landscape.
+After discovery finishes, LRC organizes the retained literature into major streams, important papers, theories, methods, agreements/disagreements, recent developments, and provisional underexplored areas.
 
-This helps you understand:
-
-- the main research streams;
-- important papers;
-- common theories;
-- methods and data typically used;
-- areas of agreement and disagreement;
-- recent developments;
-- questions that appear underexplored in the literature reviewed so far.
-
-The toolkit also builds an Evidence Map so later claims can be linked back to actual source material.
-
-You normally do not need to make a separate technical decision here.
-
----
+It also builds an Evidence Map so downstream synthesis can be traced to sources.
 
 ## 4. Research Direction
 
-Using the Research Landscape and Evidence Map, the toolkit proposes a small number of possible Research Directions.
+The toolkit proposes several possible Research Directions. These are suggestions, not decisions.
 
-These are suggestions, not automatic decisions.
+> **Compare the candidate Research Directions by contribution, evidence strength, feasibility, and risk. Recommend the strongest options, but do not choose for me.**
 
-Ask:
-
-> **Show me the candidate Research Directions in plain research language. Compare their contribution, evidence strength, feasibility, and main risks. Recommend the most defensible options, but let me make the final choice.**
-
-You may:
-
-- select one direction;
-- modify it;
-- combine ideas;
-- reject all suggestions;
-- ask for alternatives.
-
----
+You can select, modify, combine, reject, or request alternatives.
 
 ## 5. Literature Review Blueprint
 
-After you select a Research Direction, Lit Review Construct builds a Literature Review Blueprint.
+After a direction is selected, LRC builds a Blueprint describing:
 
-The Blueprint is the main architecture for writing the review. It explains:
+- the purpose of each section;
+- argument flow;
+- evidence anchors;
+- contradictions/weaknesses;
+- unresolved researcher decisions;
+- source-verification needs.
 
-- what each section should accomplish;
-- how the sections connect;
-- which literature supports each part;
-- where evidence is weak or contradictory;
-- which points still require researcher judgment or source verification.
+> **Show me the Literature Review Blueprint as a researcher would use it to write the review. Highlight the argument flow, section purposes, evidence weaknesses, and any decisions I should make before accepting it.**
 
-Recommended prompt:
-
-> **Show me the Literature Review Blueprint in a researcher-friendly format. Explain the proposed section structure, the main argument flow, the strongest evidence, the important weaknesses, and the few decisions I should review before accepting it.**
-
-You explicitly accept or revise the Blueprint before the toolkit creates Working Draft material.
-
----
+The Blueprint requires explicit researcher acceptance.
 
 ## 6. Working Draft and Researcher Handoff
 
-After the Blueprint is accepted, Lit Review Construct creates **bounded Working Draft fragments**.
+After Blueprint acceptance, LRC creates **bounded Working Draft fragments** rather than a seamless final literature review.
 
-These fragments are designed to help you begin writing, not to replace your writing.
+> **Show me the actual Working Draft fragments, not a technical summary. Present them section by section with concise source-verification notes and researcher tasks.**
 
-They should remain visibly connected to:
-
-- source evidence;
-- verification needs;
-- unresolved researcher decisions;
-- the accepted Blueprint.
-
-A useful prompt is:
-
-> **Show me the actual Working Draft fragments section by section. Keep source-verification needs and researcher decisions visible, and do not turn them into a submission-ready literature review.**
-
-At the final handoff, Lit Review Construct prepares the researcher-facing project package automatically.
+At handoff, LRC prepares the paper library, references, EndNote file, and Researcher Writing Pack.
 
 ---
 
 # Recommended prompt library
 
-You do not need to use these exact words. They are simply safe, clear prompts for common situations.
+These prompts work across supported hosts unless a host-specific shortcut such as `/lr` is noted.
 
-## Start a project
+## Start
 
-> **Start a new Lit Review Construct project. Help me define the literature scope before searching.**
+> **Start a new Lit Review Construct project in this folder. Help me define the Research Intent before you begin searching.**
 
-## Fast start from a research brief
-
-> **Start a new Lit Review Construct project using the research brief below. Use everything I have already provided, ask only for missing information that materially affects the search, and then continue with the workflow.**
-
-## Continue an existing project
+## Resume
 
 > **Continue this Lit Review Construct project from its saved state. Do not repeat completed work. Continue technical steps automatically and stop only when you need a research decision from me.**
 
-## Add your own papers
+## Add seed papers
 
-> **I have added papers to `papers/user_uploads`. Scan them as seed literature, preserve the original files, and do not assume they are all relevant.**
+> **I added papers to `papers/user_uploads`. Scan them as seed literature, preserve the original files, and do not assume they are all relevant.**
 
 ## Review discovery focus
 
-> **Show me the main research streams in the literature found so far. Explain the differences, recommend the most promising focus options, and let me decide.**
+> **Show me the main research streams found so far. Explain the differences, recommend the most promising focus options, and let me decide.**
 
 ## Finish discovery
 
-> **Assess whether the current literature is sufficient for a narrative review. If it is, recommend finishing discovery and building the Research Landscape. If it is not, explain only what is materially missing.**
+> **Assess whether the current literature is sufficient for a narrative review. If it is, recommend finishing discovery and building the Research Landscape. If not, explain only what is materially missing.**
 
-## Choose a Research Direction
+## Choose a direction
 
 > **Compare the candidate Research Directions by contribution, evidence strength, feasibility, and risk. Recommend the strongest options, but do not choose for me.**
 
-## Review the Blueprint
+## Review Blueprint
 
 > **Show me the Literature Review Blueprint as a researcher would use it to write the review. Highlight the argument flow, section purposes, evidence weaknesses, and any decisions I should make before accepting it.**
 
-## Review the Working Draft
+## Review Working Draft
 
 > **Show me the actual Working Draft fragments, not a technical summary. Present them section by section with concise source-verification notes and researcher tasks.**
 
-## Prepare the final researcher package
+## Prepare handoff
 
 > **Continue to the researcher handoff. Prepare the paper library, working references, EndNote file, and Researcher Writing Pack. Do not write a submission-ready final literature review.**
 
-## Review what still needs verification
+## Verification tasks
 
 > **Show me only the remaining source-verification tasks that matter before I write the final literature review, using paper titles rather than internal IDs.**
 
-## Generate an AI-use statement
+## AI-use statement
 
-> **Generate the optional AI-use statement using only activities that were actually recorded in this Lit Review Construct project.**
+> **Generate the optional AI-use statement using only activities actually recorded in this Lit Review Construct project.**
 
 ---
 
 # Researcher-facing project folders
 
-A typical project will look like this:
+A typical project looks like:
 
 ```text
 Research_Project/
@@ -529,7 +549,7 @@ Research_Project/
 └── .litreview/
 ```
 
-You normally only need to work with:
+Researchers normally work with:
 
 ```text
 papers/
@@ -537,7 +557,7 @@ references/
 outputs/
 ```
 
-The `.litreview/` folder stores project state used by the toolkit. You normally do not need to open or edit it.
+`.litreview/` is the toolkit's internal project state. You normally do not need to open or edit it.
 
 ---
 
@@ -545,9 +565,7 @@ The `.litreview/` folder stores project state used by the toolkit. You normally 
 
 ## `papers/full_text/`
 
-Contains lawful open-access PDFs acquired by the toolkit.
-
-When possible, downloaded PDFs are named using the DOI so each paper has a stable identity.
+Lawful open-access PDFs acquired by the toolkit. When possible, filenames use the DOI as a stable identity.
 
 Example:
 
@@ -555,119 +573,72 @@ Example:
 doi_10.1016__j.jbankfin.2024.107123.pdf
 ```
 
-If no DOI is available, another stable scholarly identifier is used.
-
 ## `papers/abstract_only/`
 
-Contains readable notes for **working literature that is currently being used but does not yet have local full text**.
+Readable notes for working literature currently used by the Blueprint/Working Draft but without local full text. These files are not substitutes for the original papers.
 
-These are not substitutes for the original papers. Detailed claims from these records should remain provisional until full text is checked.
-
-The toolkit does **not** create thousands of abstract files for the entire discovery corpus. This folder is intended for literature actually being used in the current Blueprint/Working Draft.
+The toolkit does not generate thousands of abstract files for the entire discovery corpus.
 
 ## `papers/user_uploads/`
 
-This is your drop zone for PDFs you already have.
-
-The toolkit should preserve your original filenames and should not move or rename your files without permission.
+Researcher drop zone. Your original files should not be silently renamed, moved, or deleted.
 
 ---
 
 # References and EndNote
 
-The `references/` folder contains the references currently used by the Literature Review Blueprint/Working Draft.
+`references/references_used.enw` is an EndNote Tagged import file generated from canonical bibliographic records rather than AI-written citation strings.
 
-## `references_used.enw`
+`references/references_used.csv` provides a quick audit of authors, year, title, DOI, section usage, full-text status, and researcher-verification status.
 
-EndNote tagged import file.
+`references/references_manifest.md` summarizes the working reference package.
 
-The file is generated from the toolkit's canonical bibliographic records rather than from AI-written citation strings.
-
-This reduces the chance that a reference is created from hallucinated citation text.
-
-You should still check the imported references before final submission.
-
-## `references_used.csv`
-
-A simple audit table showing the working references and where they are being used.
-
-Useful for checking:
-
-- author;
-- year;
-- title;
-- journal;
-- DOI;
-- section usage;
-- full-text status;
-- researcher verification status.
-
-## `references_manifest.md`
-
-A short summary of the reference package and current coverage.
+Always check imported bibliographic fields before final submission.
 
 ---
 
 # Researcher Writing Pack
 
-The main Word handoff file is:
+The main Word handoff is:
 
 ```text
 outputs/LitReview_Researcher_Writing_Pack.docx
 ```
 
-This is **not** intended to be a technical report.
-
-It is organized for the researcher who now needs to finish writing the literature review.
+It is designed for a researcher who now needs to finish writing the literature review.
 
 It includes:
 
-1. the research focus and selected direction;
-2. the accepted literature-review structure;
+1. research focus and selected direction;
+2. accepted review structure;
 3. what each section needs to establish;
-4. the actual Working Draft fragments;
+4. actual Working Draft fragments;
 5. remaining researcher decisions;
 6. source-verification tasks using paper titles rather than internal IDs;
 7. working references;
 8. a final writing checklist.
 
-It deliberately excludes:
-
-- internal paper IDs;
-- evidence IDs;
-- JSON fields;
-- `.litreview` paths;
-- provider logs;
-- API errors;
-- test output;
-- technical provenance;
-- the optional AI-use statement.
-
-Those technical details remain available separately when debugging is actually needed.
+It deliberately excludes internal IDs, JSON, `.litreview` paths, provider/API logs, tests, technical provenance, and the optional AI-use statement.
 
 ---
 
 # Understanding evidence status
 
-Lit Review Construct separates three ideas that are easy to confuse.
+LRC separates three states:
 
-## 1. Full text available
+## Full text available
 
-A PDF is available locally.
+A PDF exists locally. This only means it can be read.
 
-This only means the paper can be read.
+## AI checked against full text
 
-## 2. AI checked against full text
+The AI checked the relevant evidence against the paper rather than relying only on the abstract.
 
-The AI has checked the relevant evidence against the full paper rather than relying only on the abstract.
+This is still not researcher verification.
 
-This still does **not** mean the researcher has verified the claim.
+## Researcher verified
 
-## 3. Researcher verified
-
-You have explicitly checked the relevant source yourself.
-
-Only this state should be described as researcher-verified.
+You explicitly checked the relevant source yourself.
 
 The toolkit should never silently convert “PDF downloaded” into “verified evidence.”
 
@@ -675,247 +646,185 @@ The toolkit should never silently convert “PDF downloaded” into “verified 
 
 # Open-access full text
 
-Lit Review Construct may use lawful open/public locations reported by scholarly services such as OpenAlex, Semantic Scholar, and optional Unpaywall support.
+LRC may use lawful public/open locations reported by scholarly services such as OpenAlex, Semantic Scholar, and optional Unpaywall support.
 
-It does not bypass:
+It does not bypass publisher paywalls, institutional logins, CAPTCHAs, or access controls.
 
-- publisher paywalls;
-- institutional login requirements;
-- CAPTCHAs;
-- access-control systems.
-
-If lawful full text is not available, the paper can remain part of the research project as abstract-level literature until the researcher obtains the source separately.
+If lawful full text is unavailable, a paper may remain part of the project as abstract-level literature until you obtain it separately.
 
 ---
 
-# Resuming a project later
+# Resuming and switching hosts
 
-Your project is stored in the local research folder.
+The project state is stored in the local research folder, not in the old chat conversation.
 
-You can close the host and return later without relying on the old chat conversation.
+You can close one host and later open the same folder in another supported host.
 
-## In Codex
-
-Open the same research folder and say:
-
-> **Continue this Lit Review Construct project from its saved state. Do not repeat completed steps.**
-
-## In OpenCode
-
-Open the same folder and use:
-
-```text
-/lr
-```
-
-The toolkit should inspect the local project state and continue from the correct stage.
-
----
-
-# Switching between Codex and OpenCode
-
-Because the project state is stored inside the research folder, the same project can be opened in either supported host.
-
-For example:
+Example:
 
 1. start discovery in OpenCode;
 2. close OpenCode;
-3. open the same research folder in Codex;
-4. ask Codex to continue the Lit Review Construct project.
+3. open the same research folder in Cursor or Codex;
+4. use the universal resume prompt.
 
-The local project state — not the old chat conversation — is the source of truth.
+Host-specific shortcuts:
+
+```text
+OpenCode:    /lr
+Claude Code: /lr
+Gemini CLI:  /lr
+```
+
+The local LRC state remains the source of truth.
 
 ---
 
 # Updating Lit Review Construct
 
-## If you cloned the repository
+If you cloned the repository:
 
-Open the toolkit folder and run:
-
-```powershell
+```text
 git pull
 ```
 
-Then run `install.bat` again.
+Then reinstall:
 
-## If you downloaded a ZIP
+Windows:
 
-Download the latest repository version, extract it, and run `install.bat` again.
-
-After updating, close and reopen Codex/OpenCode.
-
-Optional version check:
-
-```powershell
-lrc version
+```text
+install.bat
 ```
 
-Updating the toolkit does not require creating new copies of your existing research folders.
+macOS:
+
+```bash
+bash install.sh
+```
+
+If you downloaded a ZIP, download the new version, extract it, and run the appropriate installer again.
+
+Close and reopen your AI host afterward.
+
+Updating the toolkit does not require creating new copies of existing research folders.
 
 ---
 
 # Beta testing guide
 
-Version **`0.1.0b1`** is intended for small-scale beta testing.
+Version **`0.1.0b2`** expands the beta from the original Windows/Codex/OpenCode test to **Windows + macOS and multiple AI hosts**.
 
-The most useful beta feedback is about the **researcher experience**, not low-level implementation details.
+The most useful beta feedback is about researcher experience.
 
-While testing, notice whether:
+Notice whether:
 
-- the toolkit starts only when you actually want to use Lit Review Construct;
-- it asks you for meaningful research decisions rather than technical confirmations;
-- discovery feels broad enough before narrowing;
-- it avoids repeatedly asking you to “refine” the same literature;
-- the Research Landscape is understandable;
-- candidate Research Directions are meaningfully different;
-- the Blueprint is useful as a writing structure;
-- abstract-only claims remain appropriately cautious;
+- LRC activates only when you intend to use it;
+- installation works on your operating system;
+- the same project can resume correctly after changing hosts;
+- technical steps proceed without unnecessary confirmations;
+- discovery avoids repetitive refine loops;
+- Research Landscape/Direction/Blueprint outputs are understandable;
+- abstract-only evidence remains appropriately cautious;
 - anything is incorrectly labeled “verified”;
 - downloaded PDFs are easy to find;
 - `references_used.enw` imports cleanly into EndNote;
-- the Researcher Writing Pack contains what you need to continue writing without unnecessary technical material;
-- the Suggested next message actually moves the project forward rather than repeating the previous step.
+- the Researcher Writing Pack contains what you need without technical clutter;
+- Suggested next messages move forward rather than repeat completed work;
+- different hosts preserve the same product boundary and researcher-facing behavior.
 
-## What to send when you find a problem
+## Reporting a beta problem
 
-Usually the most useful report is simply:
+Usually send:
 
-1. what you asked;
-2. what Codex/OpenCode replied;
-3. what you expected instead.
+1. operating system;
+2. AI host;
+3. what you asked;
+4. what the host replied/did;
+5. what you expected instead.
 
-You normally do **not** need to send files from `.litreview/` unless debugging specifically requires them.
+You normally do not need to send `.litreview/` internals unless debugging specifically requires them.
 
 ---
 
 # Frequently asked questions
 
-## Does Lit Review Construct write the final literature review?
+## Do I need to use Codex or OpenCode?
 
-No.
-
-It can create evidence-linked Working Draft fragments and a Writing Pack, but the final literature review remains researcher-authored.
-
-## Is this a systematic-review / PRISMA tool?
-
-Not in the current beta.
-
-The current workflow is designed for **narrative literature reviews**. It uses progressive triage rather than requiring every indexed paper to be screened.
+No. They remain supported, but the beta also installs adapters for Claude Code, Cursor, Windsurf, Gemini CLI, GitHub Copilot, and Cline.
 
 ## Do I need an API key?
 
-It depends on the host.
+That depends on the AI host/provider you choose. Lit Review Construct itself does not require provider credentials to be stored in the research folder.
 
-- **Codex:** use the access available through your OpenAI/ChatGPT account.
-- **OpenCode:** connect a supported model provider through OpenCode. Provider authentication, free tiers, subscription plans, and API costs depend on the provider you select.
+## Can I use different models?
 
-Lit Review Construct itself does not require you to store a provider key inside the research folder.
+Yes. Model selection is handled by the AI host. LRC provides the research workflow and local project structure.
 
-## Can I use free models in OpenCode?
+## Can I switch AI hosts halfway through a project?
 
-If OpenCode provides access to a free or included model through one of its configured providers, Lit Review Construct can use that host setup. The toolkit does not require one specific model.
+Yes, as long as both hosts can access the same local research folder and have the LRC adapter installed.
 
-Output quality may vary by model.
+## Does LRC write the final literature review?
+
+No. It provides literature construction, evidence organization, Blueprint, bounded Working Draft fragments, and a Writing Pack. Final prose remains researcher-authored.
+
+## Is this a systematic-review / PRISMA tool?
+
+Not in the current beta. It is currently designed for narrative literature reviews with progressive triage.
 
 ## Can I add papers I already have?
 
-Yes.
-
-Place them in:
-
-```text
-papers/user_uploads/
-```
-
-Then tell Lit Review Construct to scan them as seed literature.
-
-## Will my uploaded papers automatically be treated as relevant?
-
-No.
-
-Researcher-provided papers are treated as useful starting material, not automatically as relevant/core evidence.
-
-## Can I use literature in more than one language?
-
-Yes, if the Research Intent includes those languages.
-
-You can also define exceptions, for example English academic literature plus Vietnamese primary regulatory documents.
+Yes. Put them in `papers/user_uploads/` and ask LRC to scan them as seed literature.
 
 ## Why are some papers only in `abstract_only`?
 
-Because the toolkit may have bibliographic metadata and an abstract but no lawful local full-text PDF.
+Because metadata/abstract may be available even when lawful local full text is not. Detailed claims remain provisional until the paper is checked.
 
-Those papers can still help with discovery and mapping, but detailed findings should remain provisional until the full paper is checked.
+## Why didn't LRC download a paywalled paper?
 
-## Why didn't the toolkit download a paper behind a paywall?
+LRC does not bypass access restrictions. Obtain it lawfully through your institution or another source and add it to `papers/user_uploads/`.
 
-The toolkit does not bypass access restrictions.
+## Do I need to understand `.litreview/`?
 
-You may obtain the paper through your institution or another lawful source and place the PDF in `papers/user_uploads/`.
-
-## Can I move between Codex and OpenCode?
-
-Yes.
-
-Open the same research folder in the other host and continue from the saved Lit Review Construct state.
-
-## Do I need to understand the `.litreview` folder?
-
-No.
-
-It is the toolkit's internal project state. Researchers should normally work only with `papers/`, `references/`, and `outputs/`.
+No. Researchers normally use only `papers/`, `references/`, and `outputs/`.
 
 ---
 
 # Current beta limitations
 
-The current beta has several intentional limitations:
-
 - narrative literature reviews only;
-- scholarly search providers may rate-limit or return incomplete metadata;
-- open-access availability is not guaranteed;
-- imported bibliographic records may still need researcher correction;
-- the toolkit cannot independently guarantee that a proposed gap is globally novel;
+- scholarly providers may rate-limit or return incomplete metadata;
+- lawful open-access availability is not guaranteed;
+- bibliographic records may still require researcher correction;
+- the toolkit cannot guarantee global novelty of a proposed gap;
 - final source verification remains the researcher's responsibility;
-- output quality can vary across AI hosts and model providers;
-- Codex and OpenCode may behave slightly differently even when using the same local project state.
-
-These limitations are part of the beta-testing scope rather than hidden assumptions.
+- output quality varies by host and model;
+- multi-host adapters are now in beta and may behave differently across products;
+- Cline Skills support is itself experimental in Cline;
+- macOS support is newly added in `0.1.0b2` and should be treated as beta until tested on several real machines.
 
 ---
 
 # Optional AI-use statement
 
-At the end of a project, Lit Review Construct can optionally generate an AI-use statement based on the AI activities actually recorded in the project.
+At the end of a project, LRC can generate an optional AI-use statement based only on activities actually recorded in the project, such as search assistance, evidence organization, Research Landscape synthesis, Research Direction suggestions, Blueprint construction, and Working Draft fragments.
 
-For example, the statement may describe assistance with:
+It should never claim AI performed activities that were not recorded.
 
-- search planning;
-- literature discovery;
-- evidence organization;
-- Research Landscape synthesis;
-- candidate Research Direction suggestions;
-- Literature Review Blueprint construction;
-- Working Draft fragments.
-
-It should **not** claim that AI performed activities that were not recorded.
-
-The AI-use statement is kept separate from the Researcher Writing Pack by default.
+The AI-use statement remains separate from the Researcher Writing Pack by default.
 
 ---
 
 # For developers and advanced testers
 
-Most researchers do not need the internal documentation.
+Most researchers do not need internal documentation.
 
-Developer/beta details are available in:
+Developer/beta details are in:
 
 ```text
 BETA_READINESS.md
 ```
 
-The `.litreview/` folder contains the authoritative machine-readable project state used for resume, provenance, and debugging.
+The `.litreview/` folder contains authoritative machine-readable project state used for resume, provenance, and debugging.
 
 ---
 
@@ -929,4 +838,4 @@ MIT License.
 
 **Lit Review Construct should remove technical burden, not remove scholarly responsibility.**
 
-The toolkit should do the repetitive technical work automatically and ask the researcher only when a meaningful academic decision is required.
+The toolkit should do repetitive technical work automatically and ask the researcher only when a meaningful academic decision is required.
