@@ -9,6 +9,7 @@ import typer
 from . import __version__
 from .discovery import search_history, search_openalex
 from .intent import accept_intent, set_intent, show_intent
+from .landscape import prepare_landscape_packet, save_landscape, show_landscape
 from .papers import resolve_bibliography, scan_seed_papers
 from .project import doctor as run_doctor
 from .project import init_project, read_status
@@ -17,9 +18,11 @@ app = typer.Typer(name="lrc", help="Lit Review Construct local research toolkit.
 intent_app = typer.Typer(help="Manage the project's Research Intent.")
 seed_app = typer.Typer(help="Manage researcher-provided seed literature.")
 search_app = typer.Typer(help="Discover literature from scholarly providers.")
+landscape_app = typer.Typer(help="Prepare and persist the Research Landscape.")
 app.add_typer(intent_app, name="intent")
 app.add_typer(seed_app, name="seed")
 app.add_typer(search_app, name="search")
+app.add_typer(landscape_app, name="landscape")
 
 
 @app.command()
@@ -202,6 +205,71 @@ def search_history_command(
         typer.echo(
             f"{run['timestamp']} | {run['provider']} | {run['query']} | imported={run['imported_records']}"
         )
+
+
+@landscape_app.command("prepare")
+def landscape_prepare(
+    path: Path = typer.Argument(Path("."), help="Research workspace folder."),
+    max_papers: int = typer.Option(40, "--max-papers", min=1, max=100, help="Maximum papers in the bounded packet."),
+    abstract_chars: int = typer.Option(1600, "--abstract-chars", min=200, max=5000, help="Maximum abstract characters per paper."),
+    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
+) -> None:
+    try:
+        result = prepare_landscape_packet(
+            path,
+            max_papers=max_papers,
+            abstract_chars=abstract_chars,
+        )
+    except (FileNotFoundError, ValueError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(json.dumps(result, ensure_ascii=False))
+        return
+    typer.echo(f"Indexed records: {result['indexed_records']}")
+    typer.echo(f"Packet records: {result['packet_records']}")
+    typer.echo(f"Landscape packet: {result['packet_file']}")
+
+
+@landscape_app.command("save")
+def landscape_save(
+    input_file: Path = typer.Option(..., "--input", help="JSON file containing the host-model landscape submission."),
+    path: Path = typer.Argument(Path("."), help="Research workspace folder."),
+    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
+) -> None:
+    try:
+        result = save_landscape(path, input_file)
+    except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(json.dumps(result, ensure_ascii=False))
+        return
+    typer.echo(f"Research Landscape: {result['status']}")
+    typer.echo(f"Revision: {result['revision']}")
+    typer.echo(f"Anchor papers: {result['anchors']}")
+    typer.echo(f"Research streams: {result['streams']}")
+    typer.echo(f"Output: {result['output']}")
+
+
+@landscape_app.command("show")
+def landscape_show(
+    path: Path = typer.Argument(Path("."), help="Research workspace folder."),
+    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
+) -> None:
+    try:
+        result = show_landscape(path)
+    except FileNotFoundError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(json.dumps(result, ensure_ascii=False))
+        return
+    typer.echo(f"Research Landscape: {result['status']}")
+    typer.echo(f"Revision: {result['revision']}")
+    typer.echo(f"Anchor papers: {result['anchors']}")
+    typer.echo(f"Research streams: {result['streams']}")
+    typer.echo(f"Output: {result['output']}")
 
 
 @app.command()
