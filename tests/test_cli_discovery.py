@@ -3,7 +3,7 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
-from litreview_construct.app_cli import app
+from litreview_construct.entrypoint import app
 from litreview_construct.intent import accept_intent, set_intent
 from litreview_construct.project import init_project
 
@@ -15,6 +15,9 @@ def test_extended_discovery_commands_are_exposed() -> None:
     result = runner.invoke(app, ["discover", "--help"])
     assert result.exit_code == 0
     for command in (
+        "prepare-plan",
+        "save-plan",
+        "run-plan",
         "prepare-triage",
         "save-triage",
         "triage-status",
