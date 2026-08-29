@@ -148,6 +148,22 @@ def test_readiness_is_diagnostic_not_numeric_sufficiency(tmp_path: Path) -> None
     assert "score" not in readiness
 
 
+def test_discovery_status_reports_successful_not_requested_provider_coverage(tmp_path: Path) -> None:
+    root, campaign_id = _init(tmp_path)
+    _write_fixture_state(root, campaign_id)
+
+    result = runner.invoke(app, ["discover", "status", str(root), "--json"])
+    assert result.exit_code == 0
+    status = json.loads(result.stdout)
+
+    assert status["providers_used"] == ["crossref", "openalex", "semantic_scholar"]
+    assert status["query_families"] == 3
+    assert status["triaged_records"] == 3
+    assert status["untriaged_records"] == 1
+    assert status["saved_query_plans"] == 1
+    assert status["readiness"]["provider_failures"] == 1
+
+
 def test_finish_via_cli_persists_coverage_snapshot(tmp_path: Path) -> None:
     root, campaign_id = _init(tmp_path)
     _write_fixture_state(root, campaign_id)
