@@ -6,9 +6,11 @@ from pathlib import Path
 import typer
 
 from . import cli as core_cli
+from . import main_cli as discovery_cli
 from .direction import prepare_direction_packet as _prepare_direction_packet
 from .finalize import prepare_final_landscape_packet
 from .fulltext import full_text_status, reconcile_full_text_links
+from .graph_resilient import expand_resilient_citation_graph
 from .landscape import prepare_landscape_packet as _prepare_legacy_landscape_packet
 from .main_cli import app, discover_app
 from .project import PROJECT_DIR
@@ -56,11 +58,12 @@ def _guarded_legacy_landscape_prepare(
     )
 
 
-# The original commands live in cli.py. Their function bodies resolve these module globals at
-# call time, so replacing the references here enforces current product gates without duplicating
-# the legacy command implementations.
+# The original commands live in cli.py/main_cli.py. Their function bodies resolve these module
+# globals at call time, so replacing the references here enforces current product gates while
+# retaining one canonical user-facing command implementation.
 core_cli.prepare_direction_packet = _guarded_direction_prepare
 core_cli.prepare_landscape_packet = _guarded_legacy_landscape_prepare
+discovery_cli.expand_citation_graph = expand_resilient_citation_graph
 
 
 @discover_app.command("prepare-landscape")
