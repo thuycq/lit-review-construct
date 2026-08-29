@@ -23,6 +23,7 @@ def test_extended_discovery_commands_are_exposed() -> None:
         "triage-status",
         "expand",
         "prepare-review",
+        "readiness",
         "prepare-landscape",
     ):
         assert command in result.stdout
