@@ -1,0 +1,201 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Literal
+
+import yaml
+
+from .project import PROJECT_DIR
+
+NextAction = Literal[
+    "complete_research_intent",
+    "start_discovery",
+    "prepare_broad_query_plan",
+    "run_saved_query_plan",
+    "prepare_early_review",
+    "researcher_decision_required",
+    "revise_research_intent",
+    "prepare_focused_query_plan",
+    "continue_triage",
+    "prepare_narrowing_review",
+    "prepare_final_landscape",
+]
+
+
+def _read_json(path: Path) -> dict[str, object] | None:
+    if not path.exists():
+        return None
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _load_jsonl(path: Path) -> list[dict[str, object]]:
+    if not path.exists():
+        return []
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+
+
+def discovery_next_step(root: Path) -> dict[str, object]:
+    """Return the deterministic structural next step for the discovery funnel.
+
+    This navigator does not make scholarly choices. In particular, it never chooses a research
+    focus or decides that discovery is sufficient; those remain researcher decisions.
+    """
+    root = root.expanduser().resolve()
+    project_file = root / PROJECT_DIR / "project.yaml"
+    state_file = root / PROJECT_DIR / "state.json"
+    if not project_file.exists() or not state_file.exists():
+        raise FileNotFoundError(f"No Lit Review Construct project found at {root}")
+
+    project = yaml.safe_load(project_file.read_text(encoding="utf-8"))
+    state = json.loads(state_file.read_text(encoding="utf-8"))
+    intent_status = str(state["stages"]["research_intent"]["status"])
+    if intent_status != "accepted":
+        return {
+            "next_action": "complete_research_intent",
+            "human_checkpoint_required": True,
+            "reason": "Research Intent is not yet accepted.",
+            "campaign_status": "not_started",
+            "commands": ["lrc intent show . --json"],
+        }
+
+    campaign_file = root / PROJECT_DIR / "data" / "discovery_campaign.json"
+    campaign = _read_json(campaign_file)
+    if campaign is None:
+        return {
+            "next_action": "start_discovery",
+            "human_checkpoint_required": False,
+            "reason": "Research Intent is accepted but no discovery campaign exists.",
+            "campaign_status": "not_started",
+            "commands": ["lrc discover start .", "lrc discover prepare-plan . --phase broad --json"],
+        }
+
+    campaign_status = str(campaign.get("status") or "collecting")
+    if campaign_status == "awaiting_researcher":
+        return {
+            "next_action": "researcher_decision_required",
+            "human_checkpoint_required": True,
+            "reason": "A discovery review is saved and the researcher must choose continue, focus, change scope, or finish.",
+            "campaign_status": campaign_status,
+            "commands": ["lrc discover readiness . --json", "lrc discover decide . --action <researcher-choice>"],
+        }
+    if campaign_status == "scope_change_requested":
+        return {
+            "next_action": "revise_research_intent",
+            "human_checkpoint_required": True,
+            "reason": "The researcher requested a discovery scope change.",
+            "campaign_status": campaign_status,
+            "commands": ["lrc intent show . --json", "lrc intent set . <revised-fields>"],
+        }
+    if campaign_status == "complete":
+        return {
+            "next_action": "prepare_final_landscape",
+            "human_checkpoint_required": False,
+            "reason": "The researcher explicitly finished discovery; the retained corpus can now be prepared for the current Research Landscape.",
+            "campaign_status": campaign_status,
+            "commands": ["lrc discover prepare-landscape . --json"],
+        }
+
+    iterations = [row for row in campaign.get("iterations") or [] if isinstance(row, dict)]
+    current_plan = _read_json(root / PROJECT_DIR / "data" / "discovery_query_plan.json")
+    checkpoints = [row for row in campaign.get("review_checkpoints") or [] if isinstance(row, dict)]
+
+    if not iterations:
+        if current_plan and current_plan.get("phase") == "broad":
+            return {
+                "next_action": "run_saved_query_plan",
+                "human_checkpoint_required": False,
+                "reason": "A broad Query Plan is saved but no discovery iteration has run yet.",
+                "campaign_status": campaign_status,
+                "commands": ["lrc discover run-plan ."],
+            }
+        return {
+            "next_action": "prepare_broad_query_plan",
+            "human_checkpoint_required": False,
+            "reason": "The discovery campaign has started but no broad Query Plan has been executed.",
+            "campaign_status": campaign_status,
+            "commands": ["lrc discover prepare-plan . --phase broad --json"],
+        }
+
+    latest_checkpoint = checkpoints[-1] if checkpoints else None
+    latest_decision = latest_checkpoint.get("decision") if isinstance(latest_checkpoint, dict) else None
+    campaign_revision = int(campaign.get("revision") or 0)
+    reviewed_revision = int(latest_checkpoint.get("iteration_revision") or 0) if latest_checkpoint else -1
+    new_retrieval_since_review = campaign_revision > reviewed_revision
+
+    if campaign_status == "collecting" and latest_decision:
+        if isinstance(latest_decision, dict) and latest_decision.get("action") == "continue" and not new_retrieval_since_review:
+            return {
+                "next_action": "prepare_broad_query_plan",
+                "human_checkpoint_required": False,
+                "reason": "The researcher chose to continue broad discovery; prepare complementary query families before the next retrieval iteration.",
+                "campaign_status": campaign_status,
+                "commands": ["lrc discover prepare-plan . --phase broad --json"],
+            }
+
+    if campaign_status == "focused" and latest_decision:
+        if isinstance(latest_decision, dict) and latest_decision.get("action") == "focus" and not new_retrieval_since_review:
+            return {
+                "next_action": "prepare_focused_query_plan",
+                "human_checkpoint_required": False,
+                "reason": "The researcher selected a focus and no focused retrieval has run since that checkpoint.",
+                "campaign_status": campaign_status,
+                "selected_focuses": campaign.get("selected_focuses") or [],
+                "commands": ["lrc discover prepare-plan . --phase focused --json"],
+            }
+
+    papers = _load_jsonl(root / PROJECT_DIR / "data" / "papers.jsonl")
+    campaign_id = str(campaign.get("campaign_id") or "")
+    triaged = [
+        row
+        for row in papers
+        if row.get("triage_campaign_id") == campaign_id and row.get("triage_label")
+    ]
+    untriaged = max(0, len(papers) - len(triaged))
+
+    if not checkpoints:
+        return {
+            "next_action": "prepare_early_review",
+            "human_checkpoint_required": False,
+            "reason": "Broad retrieval exists but the researcher has not yet seen an early provisional map.",
+            "campaign_status": campaign_status,
+            "indexed_records": len(papers),
+            "commands": ["lrc discover prepare-review . --json"],
+        }
+
+    if new_retrieval_since_review and untriaged > 0:
+        return {
+            "next_action": "continue_triage",
+            "human_checkpoint_required": False,
+            "reason": "New literature has been retrieved since the last researcher checkpoint and some records remain untriaged.",
+            "campaign_status": campaign_status,
+            "indexed_records": len(papers),
+            "triaged_records": len(triaged),
+            "untriaged_records": untriaged,
+            "commands": ["lrc discover prepare-triage . --batch-size 100 --json"],
+        }
+
+    if triaged:
+        return {
+            "next_action": "prepare_narrowing_review",
+            "human_checkpoint_required": False,
+            "reason": "The current retrieved corpus has triage information and is ready for an updated researcher-facing narrowing map.",
+            "campaign_status": campaign_status,
+            "indexed_records": len(papers),
+            "triaged_records": len(triaged),
+            "untriaged_records": untriaged,
+            "commands": ["lrc discover prepare-review . --after-triage --json"],
+        }
+
+    # This path covers older/dev campaign records where a review checkpoint exists but triage has
+    # not started. It is safer to begin triage than to infer a substantive next direction.
+    return {
+        "next_action": "continue_triage",
+        "human_checkpoint_required": False,
+        "reason": "A researcher checkpoint exists, but no relevance triage has been saved for the current campaign.",
+        "campaign_status": campaign_status,
+        "indexed_records": len(papers),
+        "triaged_records": 0,
+        "untriaged_records": len(papers),
+        "commands": ["lrc discover prepare-triage . --batch-size 100 --json"],
+    }
