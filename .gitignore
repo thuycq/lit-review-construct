@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.venv/
+dist/
+build/
+*.egg-info/
+
+# Local project state when developing inside this repository
+.litreview/
+outputs/
+papers/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
