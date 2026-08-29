@@ -129,36 +129,35 @@ def project_next_step(root: Path) -> dict[str, object]:
     fulltext_resolution_file = root / PROJECT_DIR / "data" / "fulltext_resolution.json"
     evidence_map = _json(evidence_file)
     fulltext_resolution = _json(fulltext_resolution_file)
-    papers_requiring_full_text = evidence_map.get("papers_requiring_full_text") or [] if evidence_map else []
     oa_coverage_complete = bool(fulltext_resolution and fulltext_resolution.get("coverage_complete"))
 
-    # Beta behavior: OA acquisition is a coverage pass across retained/priority working literature,
-    # performed in bounded batches. max_papers is a technical batch size, not a product-level cap.
-    if not oa_coverage_complete and (not evidence_file.exists() or bool(papers_requiring_full_text)):
+    # Beta: OA is a resumable retained-literature coverage pass. max_papers is a batch size,
+    # not a product cap. Complete this technical pass before relying on the Evidence Map.
+    if not oa_coverage_complete:
         return {
             "next_action": "resolve_priority_full_text",
             "stage": "evidence_mapping",
             "skill": "litreview-fulltext",
             "human_checkpoint_required": False,
-            "reason": "Resolve lawful OA availability for the retained/priority working literature in bounded batches before relying on abstract-heavy Evidence Mapping.",
+            "reason": "Resolve lawful OA availability for retained/priority working literature in bounded batches before relying on abstract-heavy Evidence Mapping.",
             "commands": ["lrc fulltext acquire . --max-papers 100 --json"],
             "coverage_complete": False,
         }
 
-    # If a later OA pass downloaded new PDFs after an Evidence Map had already been saved, rebuild
-    # the map. source_basis=full_text means AI checked against full text, not researcher-verified.
-    if evidence_map and fulltext_resolution and int(fulltext_resolution.get("downloaded") or 0) > 0:
+    # A coverage report can be overwritten by a final zero-item batch. Compare Evidence Map time
+    # to the cumulative latest OA acquisition recorded on paper provenance instead of batch count.
+    if evidence_map and fulltext_resolution:
         evidence_saved_at = str(evidence_map.get("saved_at") or "")
-        resolved_at = str(fulltext_resolution.get("timestamp") or "")
-        if resolved_at and (not evidence_saved_at or resolved_at > evidence_saved_at):
+        latest_oa = str(fulltext_resolution.get("latest_toolkit_oa_acquired_at") or "")
+        if latest_oa and (not evidence_saved_at or latest_oa > evidence_saved_at):
             return {
                 "next_action": "refresh_evidence_after_fulltext",
                 "stage": "evidence_mapping",
                 "skill": "litreview-map",
                 "human_checkpoint_required": False,
-                "reason": "New lawful OA full text was acquired after the current Evidence Map. Re-check affected evidence against the PDFs before downstream claims are treated as current.",
+                "reason": "Lawful OA full text was acquired after the current Evidence Map. Re-check affected evidence against the PDFs before downstream claims are treated as current.",
                 "commands": ["lrc evidence prepare . --json"],
-                "downloaded_full_text": int(fulltext_resolution.get("downloaded") or 0),
+                "toolkit_oa_full_text_records": int(fulltext_resolution.get("toolkit_oa_full_text_records") or 0),
             }
 
     if not evidence_file.exists() or evidence_status in {"not_started", "in_progress", "needs_refresh", "blocked"}:
@@ -167,7 +166,7 @@ def project_next_step(root: Path) -> dict[str, object]:
             "stage": "evidence_mapping",
             "skill": "litreview-map",
             "human_checkpoint_required": False,
-            "reason": "A current Research Landscape exists; construct the source-disciplined Evidence Map before gap/direction reasoning.",
+            "reason": "A current Research Landscape and OA coverage pass exist; construct the source-disciplined Evidence Map before gap/direction reasoning.",
             "commands": ["lrc evidence prepare . --json"],
         }
 
