@@ -24,8 +24,9 @@ def _make_pdf(path: Path, *, title: str, author: str, doi: str) -> None:
 
 def test_seed_scan_extracts_doi_and_collapses_exact_file_duplicates(tmp_path: Path) -> None:
     init_project(tmp_path, name="Seed Test")
-    paper = tmp_path / "papers" / "paper.pdf"
-    duplicate = tmp_path / "papers" / "paper-copy.pdf"
+    upload_dir = tmp_path / "papers" / "user_uploads"
+    paper = upload_dir / "paper.pdf"
+    duplicate = upload_dir / "paper-copy.pdf"
     _make_pdf(
         paper,
         title="Working Capital and Firm Performance",
@@ -45,6 +46,7 @@ def test_seed_scan_extracts_doi_and_collapses_exact_file_duplicates(tmp_path: Pa
     assert len(records) == 1
     assert records[0]["doi"] == "10.1234/test.1"
     assert len(records[0]["file_instances"]) == 2
+    assert all("papers/user_uploads" in item["file_reference"].replace("\\", "/") for item in records[0]["file_instances"])
 
     inventory = (tmp_path / "outputs" / "02_seed_inventory.md").read_text(encoding="utf-8")
     assert "Working Capital and Firm Performance" in inventory
