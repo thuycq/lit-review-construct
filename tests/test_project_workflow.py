@@ -60,6 +60,14 @@ def test_legacy_project_adds_seed_checkpoint_without_deleting_old_work(tmp_path:
     old_output = tmp_path / "outputs" / "03_research_landscape.md"
     old_output.write_text("# Old landscape\n", encoding="utf-8")
 
+    # A real legacy project that previously saved these artifacts also carries saved stage state.
+    state_file = state_root / "state.json"
+    legacy_state = json.loads(state_file.read_text(encoding="utf-8"))
+    legacy_state["stages"]["literature_discovery"]["status"] = "ready_for_review"
+    legacy_state["stages"]["evidence_mapping"]["status"] = "ready_for_review"
+    legacy_state["current_stage"] = "evidence_mapping"
+    state_file.write_text(json.dumps(legacy_state), encoding="utf-8")
+
     step = project_next_step(tmp_path)
     assert step["next_action"] == "review_seed_inventory"
     assert step["indexed_seed_records"] == 1
@@ -81,6 +89,7 @@ def test_legacy_project_adds_seed_checkpoint_without_deleting_old_work(tmp_path:
     start_discovery_campaign(tmp_path)
     state = json.loads((state_root / "state.json").read_text(encoding="utf-8"))
     assert state["stages"]["literature_discovery"]["status"] == "needs_refresh"
+    assert state["stages"]["evidence_mapping"]["status"] == "needs_refresh"
     # The new campaign invalidates old downstream conclusions without erasing audit history.
     assert (state_root / "data" / "landscape.json").exists()
     assert (state_root / "data" / "evidence_map.json").exists()
