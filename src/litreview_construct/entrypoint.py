@@ -8,5 +8,6 @@ from . import blueprint_cli as _blueprint_cli  # noqa: F401  # command-registrat
 from . import ai_use_cli as _ai_use_cli  # noqa: F401  # command-registration side effect
 from . import seed_cli_ext as _seed_cli_ext  # noqa: F401  # command-registration side effect
 from . import workflow_cli as _workflow_cli  # noqa: F401  # command-registration side effect
+from . import filter_cli as _filter_cli  # noqa: F401  # command-registration side effect
 
 __all__ = ["app"]
