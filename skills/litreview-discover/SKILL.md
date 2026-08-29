@@ -172,11 +172,31 @@ Use `lrc discover status .` and `lrc discover triage-status .` to inspect campai
 
 Only after the researcher explicitly finishes the discovery campaign should downstream Research Landscape, Evidence Map, and Research Direction be treated as final-current rather than provisional/test artifacts.
 
-## 7. Research Landscape after discovery
+## 7. Build the current Research Landscape only after discovery is finished
 
-After discovery is finished, construct/refresh the Research Landscape from the retained corpus. The Landscape should identify anchors and meaningful streams without pretending that every retrieved record was deeply read.
+After the researcher explicitly chooses **finish**:
 
-The later Evidence Map should preferentially use papers that survived relevance triage and are important to the researcher-selected focus. Full-text verification is still required before strong gap/novelty claims.
+1. Run `lrc discover status . --json` and verify `status` is `complete`.
+2. Run:
+
+   `lrc discover prepare-landscape . --json`
+
+   This is the required post-discovery landscape packet. Do **not** fall back to an old pre-campaign packet merely because one exists.
+3. Read `.litreview/packets/landscape.json`.
+4. The packet contains only the bounded **retained triaged corpus** (`relevant`, `background`, `adjacent`) selected from the completed campaign. `out_of_scope` papers are excluded; unresolved/untriaged records are reported as coverage warnings rather than silently treated as evidence.
+5. Synthesize anchors, research streams, debates, methodological clusters, recent developments, and unresolved questions using the packet schema.
+6. Preserve all `paper_id` references and carry any discovery coverage warnings into `limitations`.
+7. Save the structured submission with:
+
+   `lrc landscape save . --input .litreview/packets/landscape_submission.json`
+
+The Research Landscape is a structured map of the retained literature, not a claim that every retrieved record was deeply read. It still must not assert a definitive research gap solely because something is absent from the bounded packet.
+
+## 8. Continue to Evidence Mapping
+
+After the post-discovery Research Landscape is saved, construct/refresh the Evidence Map. Prefer core/anchor/relevant papers and selectively obtain fuller source text where detailed claims, contradictions, theories, methods, limitations, or candidate gaps require verification.
+
+Research Direction remains downstream of both the **researcher-finished discovery campaign** and a refreshed Evidence Map. Do not bypass these gates.
 
 ## Evidence discipline
 
