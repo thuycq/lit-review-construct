@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
@@ -21,6 +22,7 @@ from .campaign import (
 )
 from .papers import resolve_bibliography
 from .project import PROJECT_DIR, _write_json
+from .search_provenance import attach_search_hits
 
 
 def _provider_error(provider: str, query: str, exc: httpx.HTTPError) -> dict[str, object]:
@@ -82,6 +84,8 @@ def run_resilient_discovery_iteration(
     papers_file = root / PROJECT_DIR / "data" / "papers.jsonl"
     records = _load_jsonl(papers_file)
 
+    iteration_id = str(uuid4())
+    now = datetime.now(timezone.utc).isoformat()
     provider_runs: list[dict[str, object]] = []
     failures: list[dict[str, object]] = []
     disabled_providers: set[str] = set()
@@ -90,6 +94,7 @@ def run_resilient_discovery_iteration(
     total_imported = 0
     total_enriched = 0
     language_unknown = 0
+    provenance_hits_attached = 0
 
     with httpx.Client(
         timeout=timeout,
@@ -149,7 +154,6 @@ def run_resilient_discovery_iteration(
                             "error": failure,
                         }
                     )
-                    # Avoid repeatedly hitting a provider that already rejected or throttled this iteration.
                     if failure["error_type"] in {
                         "authentication_or_access",
                         "rate_limit",
@@ -160,10 +164,20 @@ def run_resilient_discovery_iteration(
 
                 successful_calls += 1
                 imported, enriched, unknown = _import_records(records, rows, languages)
+                attached = attach_search_hits(
+                    records,
+                    rows,
+                    iteration_id=iteration_id,
+                    phase=phase,
+                    provider=provider,
+                    query=query,
+                    retrieved_at=now,
+                )
                 total_raw += len(rows)
                 total_imported += imported
                 total_enriched += enriched
                 language_unknown += unknown
+                provenance_hits_attached += attached
                 provider_runs.append(
                     {
                         "provider": provider,
@@ -173,6 +187,7 @@ def run_resilient_discovery_iteration(
                         "new_records": imported,
                         "existing_records_enriched": enriched,
                         "language_unknown": unknown,
+                        "provenance_hits_attached": attached,
                         "meta": meta,
                     }
                 )
@@ -197,10 +212,6 @@ def run_resilient_discovery_iteration(
     _write_jsonl(papers_file, records)
     relation_summary = resolve_bibliography(root)
 
-    from datetime import datetime, timezone
-
-    now = datetime.now(timezone.utc).isoformat()
-    iteration_id = str(uuid4())
     iteration = {
         "iteration_id": iteration_id,
         "timestamp": now,
@@ -216,6 +227,7 @@ def run_resilient_discovery_iteration(
         "new_records": total_imported,
         "existing_records_enriched": total_enriched,
         "language_unknown": language_unknown,
+        "provenance_hits_attached": provenance_hits_attached,
         "corpus_records_after_iteration": len(records),
         "bibliographic_relation_candidates": relation_summary["relation_candidates"],
     }
@@ -254,6 +266,7 @@ def run_resilient_discovery_iteration(
         "raw_results": total_raw,
         "new_records": total_imported,
         "existing_records_enriched": total_enriched,
+        "provenance_hits_attached": provenance_hits_attached,
         "corpus_records": len(records),
         "relation_candidates": relation_summary["relation_candidates"],
         "language_unknown": language_unknown,
