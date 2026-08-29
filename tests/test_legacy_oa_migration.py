@@ -26,11 +26,7 @@ def test_legacy_abstract_evidence_routes_through_oa_then_refresh(tmp_path: Path)
     _write_json(root / "data" / "landscape.json", {"summary": "Landscape", "streams": []})
     _write_json(
         root / "data" / "evidence_map.json",
-        {
-            "summary": "Abstract-only evidence",
-            "saved_at": "2026-08-29T01:00:00+00:00",
-            "papers_requiring_full_text": ["p1"],
-        },
+        {"summary": "Abstract-only evidence", "saved_at": "2026-08-29T01:00:00+00:00", "papers_requiring_full_text": ["p1"]},
     )
     _write_json(root / "data" / "selected_direction.json", {"title": "Direction"})
     _write_json(root / "data" / "blueprint.json", {"title": "Blueprint", "sections": []})
@@ -42,23 +38,20 @@ def test_legacy_abstract_evidence_routes_through_oa_then_refresh(tmp_path: Path)
     _write_json(
         root / "data" / "fulltext_resolution.json",
         {
-            "timestamp": "2026-08-29T02:00:00+00:00",
-            "downloaded": 1,
-            "selected_papers": 1,
+            "selected_papers": 0,
+            "downloaded": 0,
             "coverage_complete": True,
+            "toolkit_oa_full_text_records": 1,
+            "latest_toolkit_oa_acquired_at": "2026-08-29T02:00:00+00:00",
         },
     )
     second = project_next_step(tmp_path)
     assert second["next_action"] == "refresh_evidence_after_fulltext"
-    assert second["downloaded_full_text"] == 1
+    assert second["toolkit_oa_full_text_records"] == 1
 
     _write_json(
         root / "data" / "evidence_map.json",
-        {
-            "summary": "Full-text refreshed evidence",
-            "saved_at": "2026-08-29T03:00:00+00:00",
-            "papers_requiring_full_text": [],
-        },
+        {"summary": "Full-text refreshed evidence", "saved_at": "2026-08-29T03:00:00+00:00", "papers_requiring_full_text": []},
     )
     third = project_next_step(tmp_path)
     assert third["next_action"] == "construct_working_draft"
