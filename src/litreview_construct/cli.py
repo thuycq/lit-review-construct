@@ -6,7 +6,7 @@ from pathlib import Path
 import typer
 
 from . import __version__
-from .papers import scan_seed_papers
+from .papers import resolve_bibliography, scan_seed_papers
 from .project import doctor as run_doctor
 from .project import init_project, read_status
 
@@ -82,8 +82,36 @@ def seed_scan(
 
     typer.echo(f"PDFs detected: {result['pdfs_detected']}")
     typer.echo(f"Indexed records: {result['records_total']}")
-    typer.echo(f"Previously indexed duplicates: {result['duplicates_seen']}")
+    typer.echo(f"Duplicate files: {result['duplicate_files']}")
+    typer.echo(f"Bibliographic candidates: {result['relation_candidates']}")
+    typer.echo(f"  Same work: {result['same_work']}")
+    typer.echo(f"  Probable duplicates: {result['probable_duplicates']}")
+    typer.echo(f"  Possible versions: {result['possible_versions']}")
     typer.echo(f"Inventory: {result['inventory']}")
+
+
+@app.command()
+def dedupe(
+    path: Path = typer.Argument(Path("."), help="Research workspace folder."),
+    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
+) -> None:
+    """Rebuild bibliographic duplicate/version candidates without merging records."""
+    try:
+        result = resolve_bibliography(path)
+    except FileNotFoundError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+
+    if json_output:
+        typer.echo(json.dumps(result, ensure_ascii=False))
+        return
+
+    typer.echo(f"Indexed records: {result['records_total']}")
+    typer.echo(f"Bibliographic candidates: {result['relation_candidates']}")
+    typer.echo(f"  Same work: {result['same_work']}")
+    typer.echo(f"  Probable duplicates: {result['probable_duplicates']}")
+    typer.echo(f"  Possible versions: {result['possible_versions']}")
+    typer.echo(f"Relations: {result['relations_file']}")
 
 
 @app.command()
