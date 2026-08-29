@@ -16,6 +16,10 @@ Use this skill for papers the researcher already possesses before or during lite
 
 User-provided papers are **seed literature**. Do not automatically treat them as final relevant literature, anchor literature, or evidence supporting the eventual research direction.
 
+## Runtime rule
+
+Use the globally installed `lrc` command. Do **not** create `.venv`, `venv`, install Python packages, or bootstrap a separate runtime inside the research workspace. If the installed `lrc` command is missing or does not expose the expected command, tell the researcher the toolkit installation needs updating instead of modifying the research folder environment.
+
 ## Workflow
 
 1. Confirm the current folder is a Lit Review Construct project using `lrc status . --json`.
