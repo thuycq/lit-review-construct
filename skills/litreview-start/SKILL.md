@@ -1,6 +1,6 @@
 ---
 name: litreview-start
-description: Start or resume a Lit Review Construct research project. Use when the researcher wants to begin a literature-review project, define research intent, inspect project status, or continue from an existing local research workspace.
+description: Start a Lit Review Construct research project or handle Research Intent. Use for a new project, Research Intent definition/revision, or when the whole-project navigator routes back to the intent stage. For an already initialized project with an unspecified request to continue, use litreview-workflow and `lrc next` rather than rebuilding state from conversation history.
 license: MIT
 compatibility: Codex and OpenCode
 metadata:
@@ -8,9 +8,7 @@ metadata:
   stage: research-intent
 ---
 
-# Lit Review Construct — Start
-
-Use this skill to start or resume a Lit Review Construct project.
+# Lit Review Construct — Start / Research Intent
 
 ## Product boundary
 
@@ -18,36 +16,41 @@ Lit Review Construct helps the researcher find, understand, organize, synthesize
 
 ## Runtime rule
 
-Use the globally installed `lrc` command. Do **not** create a project-local Python environment or install dependencies inside the research workspace.
+Use the globally installed `lrc` command. Do not create a project-local Python environment or install toolkit dependencies inside the research workspace.
 
-## Workflow
+## New versus resumed project
 
 1. Treat the currently opened research folder as the workspace.
-2. Check whether `.litreview/project.yaml` exists.
-3. If the project is not initialized, run `lrc init .`.
-4. Run `lrc status . --json` and `lrc intent show . --json`. Continue from recorded project state rather than relying on conversation history.
-5. Begin a new Research Intent conversation with: **What are you planning to research?**
-6. Ensure the Research Intent eventually contains at minimum:
+2. If `.litreview/project.yaml` does not exist, run `lrc init .` and begin Research Intent.
+3. If the project already exists and the researcher merely says to continue/resume/proceed, route through `litreview-workflow` and run `lrc next . --json`. Do not restart Research Intent or repeat already recorded checkpoints.
+4. Use this skill directly when the project is new, when `lrc next` returns the Research Intent stage, or when the researcher explicitly wants to revise the intent.
+
+## Research Intent workflow
+
+1. Run `lrc intent show . --json`.
+2. For a new project begin conversationally with: **What are you planning to research?**
+3. Ensure the Research Intent eventually contains at minimum:
    - research question or topic;
-   - publication period;
+   - **publication period** for literature retrieval;
    - paper language(s).
-7. Ask targeted follow-up questions only when they materially improve the research scope. Relevant examples include geography, unit of analysis, variables, data constraints, methods, known theories/papers, or whether the researcher is exploring broadly versus refining an existing idea.
-8. Persist agreed scope using `lrc intent set .` with the relevant options. Multiple incremental updates are allowed.
-9. When all minimum fields are present, summarize the interpreted scope for the researcher. Only after the researcher agrees, run `lrc intent accept .`.
-10. Early in the workflow, ask whether the researcher already has related papers. Treat those papers as seed literature, not automatically as final relevant literature.
-11. Preserve important decisions in project state or project outputs. Do not treat the conversation as the project database.
+4. Ask targeted follow-up questions only when they materially improve the literature scope. Examples include geography, unit of analysis, variables, data constraints, methods, known theories/papers, or whether the researcher is exploring broadly versus refining an existing idea.
+5. Persist agreed scope with `lrc intent set .` using the relevant options. Incremental updates are allowed.
+6. When the minimum fields are complete, summarize the interpreted scope. Only after researcher agreement run `lrc intent accept .`.
+7. Do not silently interpret sample/data years inside empirical studies as the literature **publication period**.
 
-## Command pattern
+## After Intent acceptance
 
-Example only; use the researcher's actual values:
+Do not independently invent the next workflow step. Run:
 
-`lrc intent set . --topic "Working capital and firm performance" --from-year 2015 --to-year 2026 --language en`
+`lrc next . --json`
 
-Research question can be stored with `--question`. `--language` may be repeated.
+The normal next checkpoint asks whether the researcher already has related papers. That answer is persisted by the Seed Literature stage, so it should not be repeatedly asked on later resumes.
+
+Seed papers are starting literature only and are never automatically final relevant literature.
 
 ## Revision behavior
 
-If an already accepted Research Intent is materially changed, the runtime marks downstream work as needing refresh where applicable. Do not silently continue using stale discovery, evidence, direction, or blueprint outputs.
+If an accepted Research Intent is materially changed, downstream artifacts may be marked `needs_refresh`. Follow project state and regenerate affected discovery/evidence/direction/blueprint work instead of silently using stale outputs.
 
 ## Context discipline
 
