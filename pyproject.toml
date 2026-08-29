@@ -27,7 +27,7 @@ dev = [
 ]
 
 [project.scripts]
-lrc = "litreview_construct.main_cli:app"
+lrc = "litreview_construct.app_cli:app"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/litreview_construct"]
