@@ -29,7 +29,8 @@ TOOL_EVENT_LABELS = {
     "literature_discovery": "retrieving and recording scholarly metadata from configured providers",
     "deduplication": "detecting duplicate or version relationships",
     "metadata_extraction": "extracting bibliographic metadata",
-    "source_verification": "linking or verifying local source files",
+    "source_verification": "linking, resolving, or acquiring lawful source files",
+    "document_export": "exporting saved researcher artifacts to editable Word documents",
 }
 
 
@@ -69,6 +70,7 @@ def _artifact_inferences(root: Path) -> list[tuple[str, str]]:
         ("evidence_map.json", "evidence_mapping"),
         ("direction_set.json", "direction_suggestion"),
         ("blueprint.json", "blueprint_generation"),
+        ("working_draft.json", "draft_fragment"),
     ]
     for filename, category in artifact_checks:
         artifact = _load_json(state_root / "data" / filename)
@@ -164,8 +166,9 @@ def _standard_statement(summary: dict[str, object]) -> str:
         text += "The workflow also used deterministic tooling for " + _human_join(tool_activities) + ". "
     text += (
         "The researcher remained responsible for evaluating relevance, verifying source content and citations, "
-        "selecting the research direction, interpreting the literature, and writing and approving the final manuscript text. "
-        "This disclosure is generated from the activities recorded in this project and does not claim uses that were not logged."
+        "selecting the research direction, interpreting the literature, rewriting and approving any AI-assisted draft fragments, "
+        "and authoring the final manuscript text. This disclosure is generated from the activities recorded in this project and "
+        "does not claim uses that were not logged."
     )
     return text
 
@@ -192,10 +195,10 @@ def _detailed_statement(summary: dict[str, object]) -> str:
     if models:
         text += "Recorded model identifier(s): " + ", ".join(str(value) for value in models) + ". "
     text += (
-        "AI outputs were treated as suggestions or structured synthesis requiring researcher review. "
+        "AI outputs were treated as suggestions or working material requiring researcher review. "
         "The researcher retained responsibility for relevance decisions, source and citation verification, interpretation, "
-        "the final research direction, all final prose, and research integrity. This statement is limited to the auditable "
-        "activities recorded inside this project."
+        "the final research direction, rewriting and approving draft fragments, the final prose, and research integrity. "
+        "This statement is limited to the auditable activities recorded inside this project."
     )
     return text
 
@@ -240,31 +243,23 @@ def generate_ai_use_statement(root: Path, *, style: StatementStyle = "standard")
         "",
         variants["detailed"],
         "",
-        "> This statement is generated from recorded project activity. Researchers should adapt wording to the disclosure requirements of the relevant journal, institution, funder, or course and verify that the project log is complete.",
+        "> This statement is generated only from recorded project activity and should be adapted to the applicable journal, institution, course, or funder policy without adding unrecorded AI uses.",
         "",
     ]
     output = root / "outputs" / "07_ai_use_statement.md"
     _atomic_write_text(output, "\n".join(lines))
-
-    state_file = state_root / "state.json"
-    state = json.loads(state_file.read_text(encoding="utf-8"))
-    if state["stages"]["literature_review_blueprint"]["status"] == "accepted":
-        state["stages"]["researcher_handoff"]["status"] = "ready_for_review"
-        state["current_stage"] = "researcher_handoff"
-        _write_json(state_file, state)
-
     append_activity(
         root,
-        category="ai_use_statement_generation",
+        category="ai_use_disclosure",
         actor="toolkit",
         inputs={"style": style},
         outputs=[".litreview/data/ai_use_statement.json", "outputs/07_ai_use_statement.md"],
-        notes="Generated from recorded project activities; no unrecorded AI activities were added to the statement.",
+        notes="Generated an AI-use statement strictly from the project's recorded activity.",
     )
     return {
         "style": style,
         "statement": selected,
-        "ai_activity_types": len(summary["ai_activities"]),
-        "tool_activity_types": len(summary["tool_activities"]),
         "output": str(output),
+        "activity_events": summary["activity_events"],
+        "ai_activity_categories": len(summary["ai_activities"]),
     }
