@@ -39,11 +39,15 @@ def test_seed_scan_deduplicates_exact_file_hash(tmp_path: Path) -> None:
     _make_pdf(first)
     second.write_bytes(first.read_bytes())
 
-    result = scan_seed_papers(tmp_path)
+    first_result = scan_seed_papers(tmp_path)
+    second_result = scan_seed_papers(tmp_path)
 
-    assert result["pdfs_detected"] == 2
-    assert result["records_total"] == 1
-    assert result["duplicates_seen"] == 1
+    assert first_result["pdfs_detected"] == 2
+    assert first_result["records_total"] == 1
+    assert first_result["duplicate_files"] == 1
+    # Duplicate count describes the scanned source, so it stays stable on re-scan.
+    assert second_result["duplicate_files"] == 1
+    assert second_result["records_total"] == 1
 
 
 def test_external_seed_folder_is_referenced_in_place(tmp_path: Path) -> None:
