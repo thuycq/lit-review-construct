@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from collections import defaultdict
 from itertools import combinations
 from typing import Iterable
 
@@ -9,6 +10,26 @@ from rapidfuzz.fuzz import ratio
 
 _DOI_RE = re.compile(r"10\.\d{4,9}/[-._;()/:A-Z0-9]+", re.IGNORECASE)
 _NON_WORD_RE = re.compile(r"[^a-z0-9]+")
+_BLOCK_STOPWORDS = {
+    "a",
+    "an",
+    "and",
+    "are",
+    "as",
+    "at",
+    "by",
+    "for",
+    "from",
+    "in",
+    "is",
+    "of",
+    "on",
+    "the",
+    "to",
+    "using",
+    "with",
+}
+_MAX_APPROX_BLOCK = 250
 
 
 def normalize_doi(value: str | None) -> str | None:
@@ -56,8 +77,6 @@ def author_tokens(authors: Iterable[str]) -> set[str]:
         if not normalized:
             continue
         parts = normalized.split()
-        # Surname/last-token works reasonably for both `Given Family` metadata
-        # and abbreviated author lists while remaining intentionally conservative.
         tokens.add(parts[-1])
     return tokens
 
@@ -87,10 +106,67 @@ def _year_compatible(left: object, right: object) -> bool:
         return True
 
 
+def _content_tokens(title: object) -> list[str]:
+    normalized = normalize_title(str(title or ""))
+    return [token for token in normalized.split() if token not in _BLOCK_STOPWORDS]
+
+
+def _record_block_keys(record: dict[str, object]) -> set[tuple[str, str]]:
+    """Build conservative candidate-generation keys for bibliographic relations.
+
+    DOI and exact-title blocks are lossless for those identifiers. Approximate title blocks are
+    only a candidate-generation optimization; final relation decisions still use the stricter
+    similarity/author/year rules below.
+    """
+    keys: set[tuple[str, str]] = set()
+    doi = normalize_doi(str(record.get("doi"))) if record.get("doi") else None
+    if doi:
+        keys.add(("doi", doi))
+
+    normalized = normalize_title(str(record.get("title") or ""))
+    if normalized:
+        keys.add(("exact_title", normalized))
+
+    tokens = _content_tokens(record.get("title"))
+    if len(tokens) >= 3:
+        width = min(4, len(tokens))
+        keys.add(("prefix", " ".join(tokens[:width])))
+        keys.add(("suffix", " ".join(tokens[-width:])))
+        if len(tokens) >= 4:
+            keys.add(("edges", " ".join(tokens[:2] + tokens[-2:])))
+
+        authors = record.get("authors") if isinstance(record.get("authors"), list) else []
+        surnames = sorted(author_tokens(str(value) for value in authors))
+        if surnames:
+            keys.add(("author_prefix", surnames[0] + "|" + " ".join(tokens[:2])))
+    return keys
+
+
+def _candidate_pairs(records: list[dict[str, object]]) -> set[tuple[int, int]]:
+    """Generate likely duplicate/version pairs without all-pairs comparison."""
+    blocks: dict[tuple[str, str], list[int]] = defaultdict(list)
+    for index, record in enumerate(records):
+        for key in _record_block_keys(record):
+            blocks[key].append(index)
+
+    pairs: set[tuple[int, int]] = set()
+    for (kind, _), indices in blocks.items():
+        if len(indices) < 2:
+            continue
+        # Exact identifiers remain exhaustive. Approximate blocks that become extremely broad
+        # are intentionally ignored because they no longer provide useful candidate blocking.
+        if kind not in {"doi", "exact_title"} and len(indices) > _MAX_APPROX_BLOCK:
+            continue
+        for left, right in combinations(indices, 2):
+            pairs.add((left, right) if left < right else (right, left))
+    return pairs
+
+
 def detect_relations(records: list[dict[str, object]]) -> list[dict[str, object]]:
     """Detect non-file bibliographic relationships without deleting records.
 
-    Relation confidence is intentionally conservative:
+    Candidate pairs are generated through bibliographic blocking instead of comparing every
+    record with every other record. Relation confidence remains intentionally conservative:
     - same DOI => same_work / high confidence;
     - exact normalized title + compatible authors/year => probable_duplicate;
     - very similar title + author overlap => possible_version.
@@ -98,7 +174,9 @@ def detect_relations(records: list[dict[str, object]]) -> list[dict[str, object]
     Ambiguous candidates remain reviewable rather than being silently merged.
     """
     relations: list[dict[str, object]] = []
-    for left, right in combinations(records, 2):
+    for left_index, right_index in sorted(_candidate_pairs(records)):
+        left = records[left_index]
+        right = records[right_index]
         left_id = str(left.get("paper_id"))
         right_id = str(right.get("paper_id"))
         left_doi = normalize_doi(left.get("doi") if isinstance(left.get("doi"), str) else None)
