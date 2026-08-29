@@ -47,7 +47,7 @@ def test_direction_prepare_is_blocked_without_completed_discovery(tmp_path: Path
     _accepted_project(tmp_path)
     result = runner.invoke(app, ["direction", "prepare", str(tmp_path)])
     assert result.exit_code == 1
-    assert "completed multi-source discovery campaign" in result.stdout
+    assert "completed multi-source discovery campaign" in result.stderr
 
 
 def test_legacy_landscape_prepare_is_blocked_when_campaign_exists(tmp_path: Path) -> None:
@@ -62,4 +62,4 @@ def test_legacy_landscape_prepare_is_blocked_when_campaign_exists(tmp_path: Path
     path.write_text(json.dumps(campaign), encoding="utf-8")
     result = runner.invoke(app, ["landscape", "prepare", str(tmp_path)])
     assert result.exit_code == 1
-    assert "lrc discover prepare-landscape" in result.stdout
+    assert "lrc discover prepare-landscape" in result.stderr
