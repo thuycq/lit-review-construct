@@ -29,10 +29,10 @@ def test_extended_discovery_commands_are_exposed() -> None:
         assert command in result.stdout
 
 
-def test_runtime_reports_dev9() -> None:
+def test_runtime_reports_dev10() -> None:
     result = runner.invoke(app, ["version"])
     assert result.exit_code == 0
-    assert "0.1.0.dev9" in result.stdout
+    assert "0.1.0.dev10" in result.stdout
 
 
 def _accepted_project(root: Path) -> None:
