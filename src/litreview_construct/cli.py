@@ -6,6 +6,7 @@ from pathlib import Path
 import typer
 
 from . import __version__
+from .intent import accept_intent, set_intent, show_intent
 from .papers import resolve_bibliography, scan_seed_papers
 from .project import doctor as run_doctor
 from .project import init_project, read_status
@@ -15,7 +16,9 @@ app = typer.Typer(
     help="Lit Review Construct local research toolkit.",
     no_args_is_help=True,
 )
+intent_app = typer.Typer(help="Manage the project's Research Intent.")
 seed_app = typer.Typer(help="Manage researcher-provided seed literature.")
+app.add_typer(intent_app, name="intent")
 app.add_typer(seed_app, name="seed")
 
 
@@ -36,10 +39,11 @@ def init(
     if json_output:
         typer.echo(json.dumps(result, ensure_ascii=False))
         return
-    if result["created"]:
-        typer.echo(f"Initialized Lit Review Construct project at {result['root']}")
-    else:
-        typer.echo(result["message"])
+    typer.echo(
+        f"Initialized Lit Review Construct project at {result['root']}"
+        if result["created"]
+        else result["message"]
+    )
 
 
 @app.command()
@@ -53,14 +57,85 @@ def status(
     except FileNotFoundError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=1) from exc
-
     if json_output:
         typer.echo(json.dumps(result, ensure_ascii=False))
         return
-
     typer.echo(f"Project: {result['name']}")
     typer.echo(f"Stage: {result['current_stage']} ({result['stage_status']})")
     typer.echo(f"Schema: v{result['schema_version']}")
+
+
+@intent_app.command("set")
+def intent_set(
+    path: Path = typer.Argument(Path("."), help="Research workspace folder."),
+    topic: str | None = typer.Option(None, "--topic", help="Research topic."),
+    question: str | None = typer.Option(None, "--question", help="Research question."),
+    publication_from: int | None = typer.Option(None, "--from-year", help="Publication start year."),
+    publication_to: int | None = typer.Option(None, "--to-year", help="Publication end year."),
+    language: list[str] | None = typer.Option(None, "--language", "-l", help="Paper language; repeatable."),
+    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
+) -> None:
+    """Create or update the structured Research Intent."""
+    try:
+        result = set_intent(
+            path,
+            topic=topic,
+            research_question=question,
+            publication_from=publication_from,
+            publication_to=publication_to,
+            languages=language,
+        )
+    except (FileNotFoundError, ValueError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(json.dumps(result, ensure_ascii=False))
+        return
+    typer.echo(f"Research Intent: {result['status']}")
+    typer.echo(f"Revision: {result['revision']}")
+    if result["missing"]:
+        typer.echo("Missing: " + ", ".join(result["missing"]))
+    typer.echo(f"Output: {result['output']}")
+
+
+@intent_app.command("show")
+def intent_show(
+    path: Path = typer.Argument(Path("."), help="Research workspace folder."),
+    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
+) -> None:
+    """Show the current structured Research Intent."""
+    try:
+        result = show_intent(path)
+    except FileNotFoundError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(json.dumps(result, ensure_ascii=False))
+        return
+    typer.echo(f"Research Intent: {result['status']}")
+    typer.echo(f"Revision: {result['revision']}")
+    if result["missing"]:
+        typer.echo("Missing: " + ", ".join(result["missing"]))
+    typer.echo(f"Output: {result['output']}")
+
+
+@intent_app.command("accept")
+def intent_accept(
+    path: Path = typer.Argument(Path("."), help="Research workspace folder."),
+    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
+) -> None:
+    """Accept a complete Research Intent as the authoritative discovery scope."""
+    try:
+        result = accept_intent(path)
+    except (FileNotFoundError, ValueError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(json.dumps(result, ensure_ascii=False))
+        return
+    typer.echo("Research Intent accepted.")
+    typer.echo(f"Revision: {result['revision']}")
+    typer.echo(f"Output: {result['output']}")
 
 
 @seed_app.command("scan")
@@ -75,11 +150,9 @@ def seed_scan(
     except FileNotFoundError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=1) from exc
-
     if json_output:
         typer.echo(json.dumps(result, ensure_ascii=False))
         return
-
     typer.echo(f"PDFs detected: {result['pdfs_detected']}")
     typer.echo(f"Indexed records: {result['records_total']}")
     typer.echo(f"Duplicate files: {result['duplicate_files']}")
@@ -101,11 +174,9 @@ def dedupe(
     except FileNotFoundError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=1) from exc
-
     if json_output:
         typer.echo(json.dumps(result, ensure_ascii=False))
         return
-
     typer.echo(f"Indexed records: {result['records_total']}")
     typer.echo(f"Bibliographic candidates: {result['relation_candidates']}")
     typer.echo(f"  Same work: {result['same_work']}")
@@ -124,7 +195,6 @@ def doctor(
     if json_output:
         typer.echo(json.dumps(checks, ensure_ascii=False))
         return
-
     for check in checks:
         typer.echo(f"[{check['status']}] {check['check']}: {check['detail']}")
 
