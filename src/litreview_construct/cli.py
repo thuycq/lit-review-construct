@@ -8,6 +8,7 @@ import typer
 
 from . import __version__
 from .discovery import search_history, search_openalex
+from .evidence import prepare_evidence_packet, save_evidence_map, show_evidence_map
 from .intent import accept_intent, set_intent, show_intent
 from .landscape import prepare_landscape_packet, save_landscape, show_landscape
 from .papers import resolve_bibliography, scan_seed_papers
@@ -19,10 +20,12 @@ intent_app = typer.Typer(help="Manage the project's Research Intent.")
 seed_app = typer.Typer(help="Manage researcher-provided seed literature.")
 search_app = typer.Typer(help="Discover literature from scholarly providers.")
 landscape_app = typer.Typer(help="Prepare and persist the Research Landscape.")
+evidence_app = typer.Typer(help="Prepare and persist the provenance-aware Evidence Map.")
 app.add_typer(intent_app, name="intent")
 app.add_typer(seed_app, name="seed")
 app.add_typer(search_app, name="search")
 app.add_typer(landscape_app, name="landscape")
+app.add_typer(evidence_app, name="evidence")
 
 
 @app.command()
@@ -72,7 +75,9 @@ def intent_set(
     question: str | None = typer.Option(None, "--question", help="Research question."),
     publication_from: int | None = typer.Option(None, "--from-year", help="Publication start year."),
     publication_to: int | None = typer.Option(None, "--to-year", help="Publication end year."),
-    language: list[str] | None = typer.Option(None, "--language", "-l", help="Paper language; repeatable."),
+    language: list[str] | None = typer.Option(
+        None, "--language", "-l", help="Paper language; repeatable."
+    ),
     json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
 ) -> None:
     try:
@@ -210,8 +215,16 @@ def search_history_command(
 @landscape_app.command("prepare")
 def landscape_prepare(
     path: Path = typer.Argument(Path("."), help="Research workspace folder."),
-    max_papers: int = typer.Option(40, "--max-papers", min=1, max=100, help="Maximum papers in the bounded packet."),
-    abstract_chars: int = typer.Option(1600, "--abstract-chars", min=200, max=5000, help="Maximum abstract characters per paper."),
+    max_papers: int = typer.Option(
+        40, "--max-papers", min=1, max=100, help="Maximum papers in the bounded packet."
+    ),
+    abstract_chars: int = typer.Option(
+        1600,
+        "--abstract-chars",
+        min=200,
+        max=5000,
+        help="Maximum abstract characters per paper.",
+    ),
     json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
 ) -> None:
     try:
@@ -233,7 +246,9 @@ def landscape_prepare(
 
 @landscape_app.command("save")
 def landscape_save(
-    input_file: Path = typer.Option(..., "--input", help="JSON file containing the host-model landscape submission."),
+    input_file: Path = typer.Option(
+        ..., "--input", help="JSON file containing the host-model landscape submission."
+    ),
     path: Path = typer.Argument(Path("."), help="Research workspace folder."),
     json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
 ) -> None:
@@ -269,6 +284,88 @@ def landscape_show(
     typer.echo(f"Revision: {result['revision']}")
     typer.echo(f"Anchor papers: {result['anchors']}")
     typer.echo(f"Research streams: {result['streams']}")
+    typer.echo(f"Output: {result['output']}")
+
+
+@evidence_app.command("prepare")
+def evidence_prepare(
+    path: Path = typer.Argument(Path("."), help="Research workspace folder."),
+    max_papers: int = typer.Option(
+        30, "--max-papers", min=1, max=60, help="Maximum landscape papers in the bounded packet."
+    ),
+    abstract_chars: int = typer.Option(
+        2200,
+        "--abstract-chars",
+        min=300,
+        max=5000,
+        help="Maximum abstract characters per paper.",
+    ),
+    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
+) -> None:
+    try:
+        result = prepare_evidence_packet(
+            path,
+            max_papers=max_papers,
+            abstract_chars=abstract_chars,
+        )
+    except (FileNotFoundError, ValueError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(json.dumps(result, ensure_ascii=False))
+        return
+    typer.echo(f"Landscape papers: {result['landscape_papers']}")
+    typer.echo(f"Packet papers: {result['packet_papers']}")
+    typer.echo(f"Local full text available: {result['full_text_available']}")
+    typer.echo(f"Evidence packet: {result['packet_file']}")
+
+
+@evidence_app.command("save")
+def evidence_save(
+    input_file: Path = typer.Option(
+        ..., "--input", help="JSON file containing the host-model Evidence Map submission."
+    ),
+    path: Path = typer.Argument(Path("."), help="Research workspace folder."),
+    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
+) -> None:
+    try:
+        result = save_evidence_map(path, input_file)
+    except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(json.dumps(result, ensure_ascii=False))
+        return
+    typer.echo(f"Evidence Map: {result['status']}")
+    typer.echo(f"Revision: {result['revision']}")
+    typer.echo(f"Evidence items: {result['evidence_items']}")
+    typer.echo(f"Papers represented: {result['papers']}")
+    typer.echo(f"Require fuller text: {result['requires_full_text']}")
+    typer.echo(f"Output: {result['output']}")
+
+
+@evidence_app.command("show")
+def evidence_show(
+    path: Path = typer.Argument(Path("."), help="Research workspace folder."),
+    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
+) -> None:
+    try:
+        result = show_evidence_map(path)
+    except FileNotFoundError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(json.dumps(result, ensure_ascii=False))
+        return
+    typer.echo(f"Evidence Map: {result['status']}")
+    typer.echo(f"Revision: {result['revision']}")
+    typer.echo(f"Evidence items: {result['evidence_items']}")
+    typer.echo(f"Papers represented: {result['papers']}")
+    typer.echo(f"Require fuller text: {result['requires_full_text']}")
+    if result["evidence_types"]:
+        typer.echo("Evidence types:")
+        for name, count in result["evidence_types"].items():
+            typer.echo(f"  {name}: {count}")
     typer.echo(f"Output: {result['output']}")
 
 
