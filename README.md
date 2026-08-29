@@ -12,18 +12,6 @@ The current beta supports **Windows and macOS** and can be used with several AI 
 
 ---
 
-# What is an AI host?
-
-An **AI host** is the application or agent you work in. Examples include Codex, OpenCode, Claude Code, Cursor, Windsurf, Gemini CLI, GitHub Copilot, and Cline.
-
-The **model/provider** is the AI service used inside that host. Depending on the host, that might be an OpenAI, Anthropic, Google, or another model.
-
-Literature Review Construct integrates with the **host**. It does not force you to use one particular model or provider.
-
-Your account, subscription, API key, free tier, usage limit, and model choice remain managed by the host/provider you choose.
-
----
-
 # Supported AI hosts
 
 The current beta installs adapters for:
