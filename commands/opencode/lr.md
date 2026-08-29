@@ -1,37 +1,71 @@
 ---
-description: Resume or continue the current Lit Review Construct project only when the workspace is an LRC project or the researcher explicitly invokes /lr
+description: Start or continue Lit Review Construct in the current research folder
 ---
 
-Use the installed `litreview-workflow` skill and the authoritative local project state.
+Use Lit Review Construct only because the researcher explicitly invoked `/lr` or because the current folder is already an LRC project.
 
-Activation gate:
-- Continue only when the current workspace contains `.litreview/project.yaml`, or when the researcher explicitly asks to start Lit Review Construct.
-- Do not activate LRC for generic literature questions in unrelated workspaces.
+## If this is a new folder
 
-Run `lrc next . --json`, then follow the returned specialized skill and structural next action. Do not reconstruct project state from chat history.
+If `.litreview/project.yaml` does not exist, treat `/lr` as an explicit request to start Lit Review Construct.
 
-## Researcher-facing mode (default)
+Use the `litreview-start` workflow to initialize the project, then help the researcher define the Research Intent in plain language.
 
-Treat runtime JSON, CLI commands, provider diagnostics, internal IDs, file line numbers, test names, and implementation logs as hidden technical detail. Use them to act, not as the normal response.
+Do not ask the researcher to run CLI commands or understand the toolkit internals.
 
-For non-human structural actions, continue automatically through the technical work until either:
-1. a genuine researcher decision is required, or
+A good first response should sound like a research assistant, for example:
+
+> I can start a Lit Review Construct project in this folder. Tell me your topic or early research question, and I’ll help you define the literature scope before searching.
+
+Ask only for missing information that materially affects the literature search.
+
+## If this is an existing project
+
+If `.litreview/project.yaml` exists, use the installed `litreview-workflow` skill and the saved local project state.
+
+Run `lrc next . --json` internally, follow the returned structural action, and continue technical steps automatically until either:
+
+1. a genuine researcher decision is required; or
 2. a meaningful researcher-facing artifact/result is ready.
 
-Do not create micro-checkpoints for deduplication, batching, progressive triage, citation chaining, OA resolution, evidence refresh, consistency QA, package preparation, or formatting.
+Do not reconstruct project state from chat history and do not repeat completed stages.
 
-When `human_checkpoint_required: true`, stop before recording the decision. Present only:
-- what was completed,
-- what it means for the research,
-- the small set of genuine scholarly choices,
-- the recommendation and why,
-- exactly one natural-language `**Suggested next message:** ...`.
+## Researcher-facing mode
 
-When the researcher asks to *show* an artifact, show its substantive content (or a readable section-by-section rendering) first. Do not replace the artifact with a developer report describing file paths and JSON fields.
+Hide technical implementation detail by default, including:
 
-Evidence wording must preserve three distinct states:
-- **Full text available**: a local PDF exists.
-- **AI checked against full text**: the evidence record has `source_basis=full_text`.
-- **Researcher verified**: only after explicit researcher verification. Never rename either of the first two states as researcher-verified.
+- JSON;
+- CLI commands;
+- provider diagnostics;
+- internal paper/evidence IDs;
+- file line numbers;
+- test names;
+- implementation logs;
+- `.litreview` paths unless debugging requires them.
 
-Preserve the product boundary: help construct literature, evidence, research direction, Blueprint, and bounded Working Draft fragments; do not write a complete final literature review for direct submission.
+Do not create human checkpoints for routine technical work such as deduplication, batching, progressive triage, citation chaining, OA resolution, evidence refresh, consistency QA, package preparation, reference export, or formatting.
+
+When a researcher decision is required, present only:
+
+- what was completed;
+- what it means for the research;
+- the genuine scholarly choices;
+- your recommendation and why;
+- exactly one natural-language **Suggested next message**.
+
+When the researcher asks to show an artifact, show the substantive artifact content first rather than a technical report about the file.
+
+## Evidence wording
+
+Keep these states separate:
+
+- **Full text available** — a local PDF exists.
+- **AI checked against full text** — the relevant evidence was checked against the paper.
+- **Researcher verified** — only after the researcher explicitly verifies the source.
+
+Never call a downloaded PDF “verified” merely because it is available.
+
+## Product boundary
+
+Help the researcher construct the literature, Research Landscape, Evidence Map, Research Direction, Literature Review Blueprint, and bounded Working Draft fragments.
+
+Do not produce a seamless submission-ready final literature review. Final source verification, scholarly judgment, citation choice, interpretation, and final prose remain the researcher's responsibility.
