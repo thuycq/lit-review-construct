@@ -26,12 +26,17 @@ The Evidence Map is a structured research aid, not a finished literature review.
 
 Discovery normally leaves many records as metadata/abstract only. Before deep Evidence Mapping:
 
-1. Run `lrc fulltext status . --json` to see how many retained papers already have local full text and which high-priority papers are missing it.
-2. If the researcher has downloaded PDFs into `papers/` or provided an external paper folder, run the normal seed scan for those files.
-3. Run `lrc fulltext reconcile .` after scanning. High-confidence **same DOI** records may share the verified local PDF reference without deleting or merging the underlying scholarly records.
-4. Do not auto-link merely similar titles or possible versions as if they were the same paper.
-5. Do not retrieve or bypass access controls for paywalled copyrighted material. If full text is unavailable, keep the paper flagged for fuller verification and work conservatively from the available abstract.
-6. Prioritize full-text acquisition for anchor/core-candidate/high-priority relevant papers and papers supporting important contradictions or candidate gaps. It is not necessary to obtain every PDF in the discovery universe.
+1. If `lrc next . --json` routes to `resolve_priority_full_text`, run:
+
+   `lrc fulltext acquire . --max-papers 30 --json`
+
+   This proactively checks lawful OA locations through configured scholarly services and downloads direct public PDFs into `.litreview/cache/fulltext/` when available.
+2. Run `lrc fulltext status . --json` to see how many retained papers have full text and which high-priority papers are still missing it.
+3. If the researcher has additional PDFs in `papers/` or an external folder, scan them and then run `lrc fulltext reconcile .` so high-confidence same-DOI records can share the verified local file reference without merging records.
+4. Never auto-link merely similar titles or possible versions as if they were the same paper.
+5. Never bypass paywalls, logins, CAPTCHAs, institutional access controls, or other restrictions. If no lawful OA copy exists, retain the paper and flag it for researcher verification.
+6. Prioritize full text for anchors, core candidates, high-priority relevant papers, contradictions, and papers carrying important direction/gap claims. Do not try to download the entire discovery universe.
+7. OA availability is an access property, not a relevance or quality score.
 
 ## Evidence discipline
 
@@ -59,18 +64,23 @@ Never label a claim `source_reported` when it comes only from title, citation co
 
 1. Run `lrc discover status . --json`; the current campaign should be `complete` for a final-current Evidence Map.
 2. Run `lrc landscape show . --json` and confirm the refreshed post-discovery landscape exists.
-3. Check/reconcile local full text as described above.
+3. Resolve/reconcile priority full text as described above.
 4. Run `lrc evidence prepare . --json`.
 5. Read `.litreview/packets/evidence.json`.
 6. Work only from the papers referenced by the saved landscape for this mapping pass.
-7. For papers with local full text, inspect the PDF selectively when needed. Do not load every PDF automatically.
-8. For metadata-only papers, use the abstract only for claims explicitly stated there. If the abstract does not support the needed detail, add the paper ID to `papers_requiring_full_text` instead of guessing.
-9. Distinguish carefully among association, prediction, causal findings, null findings, and heterogeneous findings.
-10. Do not infer causality from regression language alone. Use `causal_finding` only when the study's design or explicit source statement supports a causal interpretation.
-11. Capture theories, methods, data/context, limitations, contradictions, and gap claims only when supported at the stated provenance level.
-12. Create a temporary JSON submission matching `expected_output_schema` in the packet.
-13. Save it with `lrc evidence save . --input <submission.json>`.
-14. Report the resulting Evidence Map status, evidence-item count, source limitations, and the path to `outputs/04_evidence_map.md`.
+7. **When a local/OA PDF is available and the current evidence task needs detailed methods, findings, sample, theory, limitations, or construct definitions, inspect that full text and prefer it over the abstract.** Do not leave a claim marked `abstract` merely because the abstract is easier to access when the relevant full text has already been acquired.
+8. Load PDFs selectively around the current claim; do not dump every PDF into model context.
+9. For papers without full text, use the abstract only for claims explicitly stated there. If the abstract does not support the needed detail, add the paper ID to `papers_requiring_full_text` instead of guessing.
+10. Distinguish carefully among association, prediction, causal findings, null findings, and heterogeneous findings.
+11. Do not infer causality from regression language alone. Use `causal_finding` only when the study's design or explicit source statement supports a causal interpretation.
+12. Capture theories, methods, data/context, limitations, contradictions, and gap claims only when supported at the stated provenance level.
+13. Create a temporary JSON submission matching `expected_output_schema` in the packet.
+14. Save it with `lrc evidence save . --input <submission.json>`.
+15. Report the Evidence Map status, evidence-item count, full-text versus abstract basis, unresolved verification needs, and the path to `outputs/04_evidence_map.md`.
+
+## Refresh rule after later full-text acquisition
+
+If important full text is acquired **after** an Evidence Map was already created, do not silently pretend existing abstract-grounded records have become full-text evidence. Revisit the affected paper/evidence items, verify them against the PDF, and refresh downstream interpretations when the verified source materially changes the claim, method, limitation, contradiction, or proposed gap.
 
 ## Important limitation handling
 
@@ -80,4 +90,4 @@ A candidate research gap should not become strong merely because many papers lac
 
 ## Context discipline
 
-Prefer the bounded packet and selectively opened full texts. Preserve paper IDs on all structured claims so later Research Direction and Blueprint stages can trace every substantive argument back to the evidence store.
+Prefer the bounded packet and selectively opened full texts. Preserve paper IDs on all structured claims so later Research Direction, Blueprint, and Working Draft stages can trace every substantive argument back to the evidence store.
