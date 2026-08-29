@@ -2,14 +2,15 @@ name: CI
 
 on:
   push:
-    branches: [main, beta-ready]
+    branches: [main, beta-ready, multi-host-macos-beta]
   pull_request:
 
 jobs:
   test:
     strategy:
+      fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-latest]
+        os: [windows-latest, macos-latest, ubuntu-latest]
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -32,11 +33,21 @@ jobs:
           uv run lrc blueprint --help
           uv run lrc package --help
           uv run lrc ai-use --help
-      - name: Validate Windows installer syntax
+      - name: Validate Windows installer and adapters
         if: runner.os == 'Windows'
         shell: powershell
         run: |
           $content = Get-Content -Raw -Path .\install.ps1
           [void][ScriptBlock]::Create($content)
           if (-not (Test-Path .\commands\opencode\lr.md)) { throw "Missing OpenCode /lr wrapper" }
-          if (-not (Test-Path .\commands\opencode\lr-status.md)) { throw "Missing OpenCode /lr-status wrapper" }
+          if (-not (Test-Path .\commands\claude\lr.md)) { throw "Missing Claude Code /lr wrapper" }
+          if (-not (Test-Path .\commands\gemini\lr.toml)) { throw "Missing Gemini CLI /lr wrapper" }
+      - name: Validate macOS installer and adapters
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          bash -n ./install.sh
+          test -f ./commands/opencode/lr.md
+          test -f ./commands/claude/lr.md
+          test -f ./commands/gemini/lr.toml
+          test -f ./commands/gemini/global-context.md
