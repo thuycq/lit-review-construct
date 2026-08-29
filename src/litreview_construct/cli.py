@@ -3,28 +3,27 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import httpx
 import typer
 
 from . import __version__
+from .discovery import search_history, search_openalex
 from .intent import accept_intent, set_intent, show_intent
 from .papers import resolve_bibliography, scan_seed_papers
 from .project import doctor as run_doctor
 from .project import init_project, read_status
 
-app = typer.Typer(
-    name="lrc",
-    help="Lit Review Construct local research toolkit.",
-    no_args_is_help=True,
-)
+app = typer.Typer(name="lrc", help="Lit Review Construct local research toolkit.", no_args_is_help=True)
 intent_app = typer.Typer(help="Manage the project's Research Intent.")
 seed_app = typer.Typer(help="Manage researcher-provided seed literature.")
+search_app = typer.Typer(help="Discover literature from scholarly providers.")
 app.add_typer(intent_app, name="intent")
 app.add_typer(seed_app, name="seed")
+app.add_typer(search_app, name="search")
 
 
 @app.command()
 def version() -> None:
-    """Show the installed Lit Review Construct version."""
     typer.echo(__version__)
 
 
@@ -34,7 +33,6 @@ def init(
     name: str | None = typer.Option(None, "--name", help="Optional project display name."),
     json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
 ) -> None:
-    """Initialize a local Lit Review Construct research workspace."""
     result = init_project(path, name=name)
     if json_output:
         typer.echo(json.dumps(result, ensure_ascii=False))
@@ -51,7 +49,6 @@ def status(
     path: Path = typer.Argument(Path("."), help="Research workspace folder."),
     json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
 ) -> None:
-    """Show current project workflow status."""
     try:
         result = read_status(path)
     except FileNotFoundError as exc:
@@ -75,7 +72,6 @@ def intent_set(
     language: list[str] | None = typer.Option(None, "--language", "-l", help="Paper language; repeatable."),
     json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
 ) -> None:
-    """Create or update the structured Research Intent."""
     try:
         result = set_intent(
             path,
@@ -103,7 +99,6 @@ def intent_show(
     path: Path = typer.Argument(Path("."), help="Research workspace folder."),
     json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
 ) -> None:
-    """Show the current structured Research Intent."""
     try:
         result = show_intent(path)
     except FileNotFoundError as exc:
@@ -124,7 +119,6 @@ def intent_accept(
     path: Path = typer.Argument(Path("."), help="Research workspace folder."),
     json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
 ) -> None:
-    """Accept a complete Research Intent as the authoritative discovery scope."""
     try:
         result = accept_intent(path)
     except (FileNotFoundError, ValueError) as exc:
@@ -144,7 +138,6 @@ def seed_scan(
     source: Path | None = typer.Option(None, "--source", help="Optional local folder containing PDFs."),
     json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
 ) -> None:
-    """Index PDF seed literature from the project papers folder or an external folder."""
     try:
         result = scan_seed_papers(path, source=source)
     except FileNotFoundError as exc:
@@ -163,12 +156,59 @@ def seed_scan(
     typer.echo(f"Inventory: {result['inventory']}")
 
 
+@search_app.command("openalex")
+def search_openalex_command(
+    query: str = typer.Option(..., "--query", "-q", help="Focused scholarly search query."),
+    path: Path = typer.Argument(Path("."), help="Research workspace folder."),
+    limit: int = typer.Option(25, "--limit", min=1, max=100, help="Maximum provider results."),
+    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
+) -> None:
+    try:
+        result = search_openalex(path, query, limit=limit)
+    except (FileNotFoundError, ValueError, httpx.HTTPError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(json.dumps(result, ensure_ascii=False))
+        return
+    typer.echo(f"OpenAlex query: {result['query']}")
+    typer.echo(f"Provider results: {result['provider_results']}")
+    typer.echo(f"Within language scope: {result['scope_results']}")
+    typer.echo(f"Imported: {result['imported']}")
+    typer.echo(f"Already known: {result['already_known']}")
+    typer.echo(f"API key used: {result['api_key_used']}")
+    if result["cost_usd"] is not None:
+        typer.echo(f"Provider-reported cost: ${result['cost_usd']}")
+    typer.echo(f"Search run: {result['search_run_file']}")
+
+
+@search_app.command("history")
+def search_history_command(
+    path: Path = typer.Argument(Path("."), help="Research workspace folder."),
+    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
+) -> None:
+    try:
+        runs = search_history(path)
+    except FileNotFoundError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(json.dumps(runs, ensure_ascii=False))
+        return
+    if not runs:
+        typer.echo("No search runs recorded.")
+        return
+    for run in runs:
+        typer.echo(
+            f"{run['timestamp']} | {run['provider']} | {run['query']} | imported={run['imported_records']}"
+        )
+
+
 @app.command()
 def dedupe(
     path: Path = typer.Argument(Path("."), help="Research workspace folder."),
     json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
 ) -> None:
-    """Rebuild bibliographic duplicate/version candidates without merging records."""
     try:
         result = resolve_bibliography(path)
     except FileNotFoundError as exc:
@@ -190,7 +230,6 @@ def doctor(
     path: Path = typer.Argument(Path("."), help="Research workspace folder."),
     json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
 ) -> None:
-    """Run basic installation/project checks."""
     checks = run_doctor(path)
     if json_output:
         typer.echo(json.dumps(checks, ensure_ascii=False))
