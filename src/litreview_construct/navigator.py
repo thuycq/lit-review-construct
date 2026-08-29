@@ -48,11 +48,56 @@ def _plan_is_after_decision(
     return bool(saved_at and decided_at and saved_at > decided_at)
 
 
+def _latest_timestamp(rows: list[dict[str, object]]) -> str:
+    values = [str(row.get("timestamp") or "") for row in rows if row.get("timestamp")]
+    return max(values) if values else ""
+
+
+def _has_triage_after(
+    triage_runs: list[dict[str, object]],
+    *,
+    campaign_id: str,
+    timestamp: str,
+) -> bool:
+    if not timestamp:
+        return False
+    return any(
+        str(run.get("campaign_id") or "") == campaign_id
+        and str(run.get("timestamp") or "") > timestamp
+        for run in triage_runs
+    )
+
+
+def _narrowing_action(
+    *,
+    campaign_status: str,
+    papers: list[dict[str, object]],
+    triaged: list[dict[str, object]],
+    untriaged: int,
+    reason: str,
+) -> dict[str, object]:
+    return {
+        "next_action": "prepare_narrowing_review",
+        "human_checkpoint_required": False,
+        "reason": reason,
+        "campaign_status": campaign_status,
+        "indexed_records": len(papers),
+        "triaged_records": len(triaged),
+        "untriaged_records": untriaged,
+        "commands": ["lrc discover prepare-review . --after-triage --json"],
+    }
+
+
 def discovery_next_step(root: Path) -> dict[str, object]:
     """Return the deterministic structural next step for the discovery funnel.
 
     This navigator does not make scholarly choices. In particular, it never chooses a research
     focus or decides that discovery is sufficient; those remain researcher decisions.
+
+    Narrative-review triage is progressive rather than exhaustive. After a bounded triage batch
+    has been completed for newly retrieved literature, the workflow returns to a researcher-facing
+    narrowing review even when many corpus records remain untriaged. The researcher may then
+    explicitly request more filtering without another search.
     """
     root = root.expanduser().resolve()
     project_file = root / PROJECT_DIR / "project.yaml"
@@ -87,9 +132,13 @@ def discovery_next_step(root: Path) -> dict[str, object]:
         return {
             "next_action": "researcher_decision_required",
             "human_checkpoint_required": True,
-            "reason": "A discovery review is saved and the researcher must choose continue, focus, change scope, or finish.",
+            "reason": "A discovery review is saved and the researcher must choose whether to filter more, broaden/search, focus, change scope, or finish.",
             "campaign_status": campaign_status,
-            "commands": ["lrc discover readiness . --json", "lrc discover decide . --action <researcher-choice>"],
+            "commands": [
+                "lrc discover readiness . --json",
+                "lrc discover filter .  # continue filtering current corpus without retrieval",
+                "lrc discover decide . --action <continue|focus|change_scope|finish>",
+            ],
         }
     if campaign_status == "scope_change_requested":
         return {
@@ -182,6 +231,44 @@ def discovery_next_step(root: Path) -> dict[str, object]:
         if row.get("triage_campaign_id") == campaign_id and row.get("triage_label")
     ]
     untriaged = max(0, len(papers) - len(triaged))
+    triage_runs = [
+        row
+        for row in _load_jsonl(root / PROJECT_DIR / "data" / "triage_runs.jsonl")
+        if str(row.get("campaign_id") or "") == campaign_id
+    ]
+    latest_iteration_at = _latest_timestamp(iterations)
+    triage_after_latest_retrieval = _has_triage_after(
+        triage_runs,
+        campaign_id=campaign_id,
+        timestamp=latest_iteration_at,
+    )
+
+    if decision_dict and decision_dict.get("action") == "filter":
+        decision_at = str(decision_dict.get("timestamp") or "")
+        triage_after_filter_choice = _has_triage_after(
+            triage_runs,
+            campaign_id=campaign_id,
+            timestamp=decision_at,
+        )
+        if untriaged > 0 and not triage_after_filter_choice:
+            return {
+                "next_action": "continue_triage",
+                "human_checkpoint_required": False,
+                "reason": "The researcher explicitly chose to filter more of the existing corpus without additional retrieval.",
+                "campaign_status": campaign_status,
+                "indexed_records": len(papers),
+                "triaged_records": len(triaged),
+                "untriaged_records": untriaged,
+                "commands": ["lrc discover prepare-triage . --batch-size 100 --json"],
+            }
+        if triaged:
+            return _narrowing_action(
+                campaign_status=campaign_status,
+                papers=papers,
+                triaged=triaged,
+                untriaged=untriaged,
+                reason="A researcher-requested additional triage batch is complete; return to a narrowing review instead of exhaustively screening the corpus.",
+            )
 
     if not checkpoints:
         return {
@@ -194,10 +281,18 @@ def discovery_next_step(root: Path) -> dict[str, object]:
         }
 
     if new_retrieval_since_review and untriaged > 0:
+        if triage_after_latest_retrieval and triaged:
+            return _narrowing_action(
+                campaign_status=campaign_status,
+                papers=papers,
+                triaged=triaged,
+                untriaged=untriaged,
+                reason="A bounded priority triage batch has been completed for the newly retrieved literature. Return to the researcher with an updated narrowing map; exhaustive triage is not required for a narrative review.",
+            )
         return {
             "next_action": "continue_triage",
             "human_checkpoint_required": False,
-            "reason": "New literature has been retrieved since the last researcher checkpoint and some records remain untriaged.",
+            "reason": "New literature has been retrieved since the last researcher checkpoint; triage one bounded priority batch before rebuilding the narrowing map.",
             "campaign_status": campaign_status,
             "indexed_records": len(papers),
             "triaged_records": len(triaged),
@@ -206,16 +301,13 @@ def discovery_next_step(root: Path) -> dict[str, object]:
         }
 
     if triaged:
-        return {
-            "next_action": "prepare_narrowing_review",
-            "human_checkpoint_required": False,
-            "reason": "The current retrieved corpus has triage information and is ready for an updated researcher-facing narrowing map.",
-            "campaign_status": campaign_status,
-            "indexed_records": len(papers),
-            "triaged_records": len(triaged),
-            "untriaged_records": untriaged,
-            "commands": ["lrc discover prepare-review . --after-triage --json"],
-        }
+        return _narrowing_action(
+            campaign_status=campaign_status,
+            papers=papers,
+            triaged=triaged,
+            untriaged=untriaged,
+            reason="The current corpus has progressive triage information and is ready for an updated researcher-facing narrowing map.",
+        )
 
     return {
         "next_action": "continue_triage",
