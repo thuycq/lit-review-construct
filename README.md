@@ -1,4 +1,4 @@
-# Lit Review Construct
+# Literature Review Construct
 
 **Build the literature behind your study — without handing authorship to AI.**
 
