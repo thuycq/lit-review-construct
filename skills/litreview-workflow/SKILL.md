@@ -31,7 +31,8 @@ The response includes:
 - `stage`;
 - the specialized `skill` to use;
 - whether a human checkpoint is required;
-- the structural command(s) that move the project forward.
+- the structural command(s) that move the project forward;
+- `suggested_user_message`, a short message the researcher can send to advance the saved workflow without needing to know internal commands.
 
 ## Routing
 
@@ -50,11 +51,29 @@ Do not duplicate stage-specific logic here when the specialized skill already de
 
 If `human_checkpoint_required` is true, stop and ask the researcher for the required scholarly/product decision. Never silently choose:
 - whether seed literature exists;
-- whether discovery should continue, focus, change scope, or finish;
+- whether discovery should filter more, continue/broaden, focus/refocus, change scope, or finish;
 - which Research Direction to select/modify/combine/reject;
 - whether the Literature Review Blueprint is accepted.
 
 Do not disguise an AI recommendation as a researcher decision.
+
+## User-facing completion contract
+
+Every researcher-facing response that completes a workflow action or reaches a checkpoint must end with clear guidance about what the researcher can do next.
+
+1. Briefly state what was completed and the important project status.
+2. If there is a human checkpoint, show the valid choices and give one reasoned recommendation when appropriate.
+3. End with exactly one easy-to-copy line in this form:
+
+   **Suggested next message:** <message>
+
+4. Prefer the `suggested_user_message` returned by `lrc next . --json` or `lrc discover next . --json` when available.
+5. The suggestion is never itself researcher approval. If the next action requires a human decision, phrase it so the researcher still makes or confirms that decision.
+6. Do not expose internal `lrc` commands as the primary thing the researcher must type unless debugging is explicitly requested.
+
+A generic non-checkpoint fallback is:
+
+**Suggested next message:** Continue with the recommended next step.
 
 ## Researcher handoff
 
