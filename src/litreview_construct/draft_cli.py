@@ -6,6 +6,7 @@ from pathlib import Path
 import typer
 
 from .app_cli import app
+from .draft_quality import validate_working_draft_claim_language
 from .draft_support import prepare_working_draft_packet, save_working_draft, show_working_draft
 
 
@@ -40,7 +41,9 @@ def draft_save(
     json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
 ) -> None:
     try:
+        qa = validate_working_draft_claim_language(path, input_file)
         result = save_working_draft(path, input_file)
+        result["claim_strength_qa"] = qa
     except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=1) from exc
@@ -50,6 +53,7 @@ def draft_save(
     typer.echo(f"Researcher working draft: {result['status']}")
     typer.echo(f"Sections: {result['sections']}")
     typer.echo(f"Fragments requiring verification: {result['verification_fragments']}")
+    typer.echo("Claim-strength QA: pass")
     typer.echo(f"Output: {result['output']}")
 
 

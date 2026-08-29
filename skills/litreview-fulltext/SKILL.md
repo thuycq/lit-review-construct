@@ -1,6 +1,6 @@
 ---
 name: litreview-fulltext
-description: Resolve and acquire lawful open-access full text for priority papers in a Lit Review Construct project. Use after the Research Landscape identifies important papers, before Evidence Mapping when possible, or later when the researcher wants to verify abstract-based evidence.
+description: Resolve and acquire lawful open-access full text for retained/priority papers in an active Lit Review Construct workspace. Use after Research Landscape and before Evidence Mapping, or later to improve abstract-based evidence. Never equate PDF availability with researcher verification.
 license: MIT
 compatibility: Codex and OpenCode
 metadata:
@@ -8,57 +8,49 @@ metadata:
   stage: evidence-mapping
 ---
 
-# Lit Review Construct — Open-Access Full-Text Verification
-
-Use this skill when the workflow requests `resolve_priority_full_text` or when the researcher asks to verify important papers beyond abstracts.
+# Lit Review Construct — Beta Lawful Full-Text Acquisition
 
 ## Objective
 
-Improve evidence quality by obtaining lawful open/public copies of papers that are already important to the current research direction. Full-text acquisition is **selective**, not a reason to restrict discovery to OA-only literature.
+Improve the source basis for literature construction by resolving lawful open/public copies of important retained papers. OA availability is an access property, not a relevance/quality score, and non-OA papers remain in the project.
 
-## Sources
+## Allowed resolvers
 
-The runtime may resolve open/public locations through:
-- OpenAlex OA locations;
-- Semantic Scholar `openAccessPdf`;
-- Unpaywall DOI lookups when `UNPAYWALL_EMAIL` (or `CROSSREF_MAILTO`) is configured.
+Runtime may use provider-reported public locations from OpenAlex, Semantic Scholar `openAccessPdf`, and Unpaywall when configured. Never bypass paywalls, logins, CAPTCHAs, institutional access controls, robots restrictions, or other access restrictions.
 
-Provider credentials/configuration are environmental and must never be written into the project.
+## Coverage behavior
 
-## Rules
+`lrc fulltext acquire . --max-papers 100 --json` uses `100` as a **technical batch size**, not a product-level cap. Without explicit paper IDs, the runtime advances through retained literature and skips records already locally available or already OA-resolved. Follow with `lrc next . --json`; if OA coverage is incomplete, continue the next batch automatically rather than asking the researcher to approve each batch.
 
-- Never bypass a paywall, login, CAPTCHA, institutional access control, or robots/access restriction.
-- Do not discard a substantively important paper merely because no OA copy is found.
-- Preserve version information when available (`publishedVersion`, `acceptedVersion`, `submittedVersion`).
-- Preserve provider, URL, license, and acquisition timestamp.
-- Prefer an existing researcher-provided/local PDF over downloading another copy.
-- Download only direct URLs that actually return a PDF. Failed or non-PDF responses remain unresolved rather than being forced through scraping.
-- Treat OA availability as an access property, not a relevance or quality score.
+Do not keep selecting the same first 100 records. `oa_resolved_at`/coverage state is the cursor. Coverage may legitimately finish with many papers unresolved/closed.
 
-## Standard workflow
+## Researcher-facing paper library
 
-Run:
+Toolkit-acquired lawful OA PDFs are exposed in:
 
-`lrc fulltext acquire . --max-papers 30 --json`
+`papers/full_text/`
 
-By default the runtime prioritizes papers referenced by the accepted Blueprint when one exists, then selected Research Direction, then Research Landscape anchors/core retained papers.
+Use stable DOI-based Windows-safe filenames when DOI exists, for example:
 
-For specific papers:
+`doi_10.1016__j.jbankfin.2024.107123.pdf`
 
-`lrc fulltext acquire . --paper-id <id1> --paper-id <id2> --json`
+Fallback: OpenAlex ID → Semantic Scholar ID → internal stable paper ID. Preserve legacy cache references/provenance internally. Do not rename or move researcher-provided files.
 
-To resolve links without downloading:
+Researcher uploads belong in `papers/user_uploads/`.
 
-`lrc fulltext acquire . --resolve-only --max-papers 30 --json`
+## Evidence-state contract
 
-Then inspect:
+Keep these distinct:
+- **Full text available** — a PDF exists locally.
+- **AI checked against full text** — an Evidence item was rebuilt/read with `source_basis=full_text`.
+- **Researcher verified** — only after explicit researcher verification.
 
-`lrc fulltext status . --json`
+Downloading a PDF does not upgrade existing abstract-based evidence. If new PDFs were acquired after the current Evidence Map, refresh the affected Evidence Map first. Do not call a downloaded paper “full-text verified” unless the researcher actually verified it.
 
-Downloaded files are stored under `.litreview/cache/fulltext/` and linked back to the existing scholarly record. Do not duplicate/replace researcher files outside the project.
+## Failed/unresolved access
 
-## Evidence consequences
+If only a landing page is available, or no lawful OA copy resolves, keep the scholarly record, preserve the access status, and include it in later verification needs when relevant. Do not force scraping.
 
-When full text becomes available, subsequent Evidence Mapping should prefer the full text for detailed findings, methods, limitations, constructs, and source-reported claims. Previously abstract-based evidence is not magically upgraded; rebuild or verify the relevant Evidence Map items against the acquired source.
+## Researcher-facing response
 
-If no OA copy is available, keep the paper in the project and surface it in the researcher verification list.
+Do not dump provider diagnostics by default. Summarize coverage in plain language: how many retained/priority records were checked, how many local PDFs are available, how many remain unresolved, and whether the coverage pass is complete. Continue automatically while coverage remains and no scholarly decision is required.

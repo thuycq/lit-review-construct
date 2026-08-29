@@ -1,6 +1,6 @@
 ---
 name: litreview-workflow
-description: Resume and orchestrate an entire Lit Review Construct project from authoritative local state. Use when the researcher asks to continue, resume, proceed, or work on the literature review without naming a specific stage. Route to the correct specialized skill and stop at researcher checkpoints.
+description: Resume and orchestrate an existing Lit Review Construct project. Activate only when the current workspace contains `.litreview/project.yaml` or the researcher explicitly invokes Lit Review Construct. Do not activate for generic literature questions in unrelated workspaces.
 license: MIT
 compatibility: Codex and OpenCode
 metadata:
@@ -8,93 +8,100 @@ metadata:
   stage: orchestration
 ---
 
-# Lit Review Construct — Workflow Orchestrator
+# Lit Review Construct — Beta Workflow Orchestrator
 
-This is the top-level routing skill for an existing Lit Review Construct research workspace.
+## Product boundary
 
-## North-star objective
+Help the researcher construct the literature behind a study: Research Intent, discovery, Research Landscape, source-disciplined Evidence Map, Research Direction, Literature Review Blueprint, and bounded Working Draft fragments. Never turn the Working Draft into a seamless submission-ready literature review. The researcher verifies sources, chooses citations, resolves scholarly judgments, and authors final prose.
 
-The toolkit exists to help a researcher **construct the literature behind a study**: define the literature scope, discover enough relevant scholarship, understand the research landscape, organize evidence, reason about defensible research directions/gaps, build a Literature Review Blueprint, and turn that accepted architecture into a researcher-editable Working Draft. It is not a generic academic search engine and it does not replace the researcher as author of the final literature review.
+## Activation and resume
 
-When deciding what to do next, prefer progress toward this objective over adding unrelated analysis, convenience features, or technical complexity.
+- Existing project: require `.litreview/project.yaml` in the current workspace.
+- New project: initialize only after an explicit researcher request to start Lit Review Construct.
+- An unspecified continuation begins with `lrc next . --json`.
+- Local state is authoritative; do not reconstruct project state from chat history.
 
-## Resume rule
+## Checkpoint rule
 
-Always begin an unspecified continuation/resume request with:
+A human checkpoint is for a **genuine scholarly decision**, not a technical operation.
 
-`lrc next . --json`
+Stop when `human_checkpoint_required: true`. Never silently choose:
+- Research Intent/scope;
+- whether seed literature exists when the project asks;
+- scholarly focus/refocus or scope change;
+- whether discovery is sufficient when the navigator returns a decision checkpoint;
+- Research Direction;
+- Blueprint acceptance;
+- researcher interpretation when evidence genuinely conflicts.
 
-Treat the returned project state as authoritative. Do not reconstruct workflow state from conversation history.
+Do **not** create checkpoints for deduplication, batching, progressive triage, citation chaining, OA resolution, Evidence Map refresh, consistency QA, claim-strength QA, reference export, Word export, or final package materialization. Follow non-human `next_action` results automatically and call `lrc next . --json` again until a genuine checkpoint or meaningful artifact is reached.
 
-The response includes:
-- `next_action`;
-- `stage`;
-- the specialized `skill` to use;
-- whether a human checkpoint is required;
-- the structural command(s) that move the project forward;
-- `suggested_user_message`, a short message the researcher can send to advance the saved workflow without needing to know internal commands.
+In particular, `next_action: refine` is a structural beta action: priority triage → citation chaining from core seeds → triage graph additions → rebuild narrowing review. It is not researcher approval and should run without asking the researcher to type “refine” after every round.
 
-## Routing
+## Researcher-facing mode
 
-Route to the specialized skill named by `lrc next`:
-- `litreview-start` — Research Intent;
-- `litreview-seeds` — existing/seed literature;
-- `litreview-discover` — multi-source discovery, iterative narrowing, Research Landscape;
-- `litreview-fulltext` — lawful OA full-text acquisition for priority papers;
+Default responses must be understandable to a researcher who does not know the runtime.
+
+- Hide JSON, CLI commands, UUIDs/internal paper IDs, file line numbers, provider/test logs, and implementation diagnostics unless debugging is explicitly requested.
+- If the researcher asks to **show** an artifact, show its substantive content first; do not replace it with a technical report describing the file.
+- Explain: what completed → what it means → any genuine choice → recommendation.
+- Every completion/checkpoint ends with exactly one:
+
+  **Suggested next message:** <natural-language message>
+
+Prefer runtime `suggested_user_message`. If absent, use a natural-language fallback. Never expose `lrc ...` as the primary suggestion.
+
+## Evidence-state contract
+
+Never collapse these states:
+
+1. **Full text available** — a local PDF exists.
+2. **AI checked against full text** — an Evidence record uses `source_basis=full_text`.
+3. **Researcher verified** — only after explicit researcher verification.
+
+Availability is not verification. AI checking is not researcher verification. Do not use “full-text verified” as shorthand when only state 1 or 2 is true.
+
+Abstract/metadata-based evidence must remain provisional. Gap/absence claims from narrative progressive discovery must be bounded to the reviewed corpus unless independently verified.
+
+## Main routing
+
+Use the skill named by `lrc next`:
+- `litreview-start` — Intent/new project;
+- `litreview-seeds` — researcher papers;
+- `litreview-discover` — discovery, technical refinement, Research Landscape;
+- `litreview-fulltext` — lawful OA coverage;
 - `litreview-map` — Evidence Map;
-- `litreview-direction` — candidate Research Direction and researcher selection;
-- `litreview-blueprint` — Literature Review Blueprint;
-- `litreview-draft` — researcher-editable evidence-linked Working Draft;
-- `litreview-ai-use` — optional activity-grounded disclosure at handoff.
+- `litreview-direction` — candidate directions + researcher choice;
+- `litreview-blueprint` — evidence-linked Blueprint;
+- `litreview-draft` — bounded Working Draft;
+- `litreview-workflow` with `prepare_researcher_package` — final paper/reference/Word package;
+- `litreview-ai-use` — optional activity-grounded disclosure.
 
-Do not duplicate stage-specific logic here when the specialized skill already defines it.
+## Researcher package
 
-## Human checkpoints
+Before final handoff, when `lrc next` returns `prepare_researcher_package`, run package preparation automatically. The researcher-facing workspace should contain:
 
-If `human_checkpoint_required` is true, stop and ask the researcher for the required scholarly/product decision. Never silently choose:
-- whether seed literature exists;
-- whether discovery should filter more, continue/broaden, focus/refocus, change scope, or finish;
-- which Research Direction to select/modify/combine/reject;
-- whether the Literature Review Blueprint is accepted.
+```text
+papers/
+├── full_text/       # toolkit-acquired lawful OA PDFs, DOI-based names when possible
+├── abstract_only/   # working references without local full text
+└── user_uploads/    # researcher drop zone; do not rename/move user files
+references/
+├── references_used.enw
+├── references_used.csv
+└── references_manifest.md
+outputs/
+└── researcher artifacts + Word handoff
+```
 
-Do not disguise an AI recommendation as a researcher decision.
+`.litreview/` remains machine state/cache; the researcher should not need to browse it in normal use.
 
-## User-facing completion contract
+Reference export must come from canonical scholarly records, not AI-written citation strings. `references_used.enw` contains only references actually used by the current Blueprint/Working Draft set, not the entire discovery corpus.
 
-Every researcher-facing response that completes a workflow action or reaches a checkpoint must end with clear guidance about what the researcher can do next.
+## Final handoff
 
-1. Briefly state what was completed and the important project status.
-2. If there is a human checkpoint, show the valid choices and give one reasoned recommendation when appropriate.
-3. End with exactly one easy-to-copy line in this form:
-
-   **Suggested next message:** <message>
-
-4. Prefer the `suggested_user_message` returned by `lrc next . --json` or `lrc discover next . --json` when available.
-5. The suggestion is never itself researcher approval. If the next action requires a human decision, phrase it so the researcher still makes or confirms that decision.
-6. Do not expose internal `lrc` commands as the primary thing the researcher must type unless debugging is explicitly requested.
-
-A generic non-checkpoint fallback is:
-
-**Suggested next message:** Continue with the recommended next step.
-
-## Researcher handoff
-
-The accepted Blueprint is **not** the end of useful product assistance. Before handoff, construct the Researcher Working Draft when `lrc next` requests it. This draft provides section-level prose fragments, evidence anchors, transitions, verification flags, and researcher tasks. It remains explicitly non-final.
-
-When `lrc next` finally returns `researcher_handoff`, the researcher has both an accepted Blueprint and a Working Draft. The researcher then verifies sources/citations, rewrites and approves prose, and authors the final review. The toolkit may continue to support targeted source verification, citation checks, evidence questions, revision against the Blueprint, and Word export.
-
-Do **not** present the AI-assisted Working Draft as submission-ready final prose. An AI-use statement is optional and must be generated only from recorded project activity.
-
-## Word export
-
-When requested, export saved artifacts through the runtime rather than relying on host-specific Word features:
-
-- `lrc export docx . --artifact working-draft`
-- `lrc export docx . --artifact blueprint`
-- `lrc export docx . --artifact handoff`
-
-Markdown/JSON remains authoritative state; DOCX is an editable presentation/export format.
+At `researcher_handoff`, the package already exists. Present the researcher-facing artifacts and remaining source-verification tasks. Do not suggest re-showing the Working Draft if it was just shown. AI-use disclosure is optional and must be grounded only in recorded activity.
 
 ## Context discipline
 
-Use bounded packets and structured project state. Do not load the entire discovery corpus into context merely because it exists locally. Load full text selectively when the current scholarly claim requires it.
+Keep large corpora local and use bounded packets. Narrative triage is progressive, not exhaustive. Do not infer that a high untriaged percentage alone requires more discovery.

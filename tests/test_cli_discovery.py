@@ -30,19 +30,21 @@ def test_extended_discovery_commands_are_exposed() -> None:
         assert command in result.stdout
 
 
-def test_dev12_handoff_commands_are_exposed() -> None:
+def test_beta_handoff_commands_are_exposed() -> None:
     assert runner.invoke(app, ["fulltext", "--help"]).exit_code == 0
     assert "acquire" in runner.invoke(app, ["fulltext", "--help"]).stdout
     assert runner.invoke(app, ["draft", "--help"]).exit_code == 0
     assert "prepare" in runner.invoke(app, ["draft", "--help"]).stdout
     assert runner.invoke(app, ["export", "--help"]).exit_code == 0
     assert "docx" in runner.invoke(app, ["export", "--help"]).stdout
+    assert runner.invoke(app, ["package", "--help"]).exit_code == 0
+    assert "prepare" in runner.invoke(app, ["package", "--help"]).stdout
 
 
-def test_runtime_reports_dev12() -> None:
+def test_runtime_reports_beta_version() -> None:
     result = runner.invoke(app, ["version"])
     assert result.exit_code == 0
-    assert "0.1.0.dev12" in result.stdout
+    assert "0.1.0b1" in result.stdout
 
 
 def _accepted_project(root: Path) -> None:

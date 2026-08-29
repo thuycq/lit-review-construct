@@ -2,7 +2,7 @@ $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
 $RepoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-$ExpectedVersion = "0.1.0.dev12"
+$ExpectedVersion = "0.1.0b1"
 Write-Host "Lit Review Construct installer"
 Write-Host "Repository: $RepoRoot"
 Write-Host "Runtime target: $ExpectedVersion"
@@ -30,8 +30,7 @@ Write-Host "Using uv: $Uv"
 & $Uv python install 3.12
 if ($LASTEXITCODE -ne 0) { throw "Python 3.12 installation failed." }
 
-# --reinstall is intentional: the toolkit is installed from a local checkout and
-# development builds may change without a release-version change.
+# --reinstall is intentional: beta builds are installed from a local checkout.
 & $Uv tool install --force --reinstall --python 3.12 $RepoRoot
 if ($LASTEXITCODE -ne 0) { throw "Lit Review Construct runtime installation failed." }
 
@@ -95,7 +94,7 @@ $Manifest = @{
 $Manifest | ConvertTo-Json | Set-Content -Encoding UTF8 (Join-Path $InstallRoot "install-manifest.json")
 
 Write-Host ""
-Write-Host "Installed Lit Review Construct core and host adapters."
+Write-Host "Installed Lit Review Construct beta core and host adapters."
 Write-Host "Codex skills: $CodexSkills"
 Write-Host "OpenCode skills: $OpenCodeSkills"
 Write-Host "OpenCode commands: $OpenCodeCommands"
@@ -109,4 +108,4 @@ if ($ResolvedPath) {
     Write-Warning "lrc is not visible in this shell yet. Close and reopen the terminal before testing."
 }
 Write-Host ""
-Write-Host "Open a research folder and run: lrc init"
+Write-Host "Open a dedicated research folder and explicitly start Lit Review Construct. Global installation does not activate LRC in unrelated workspaces."

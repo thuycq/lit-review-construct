@@ -26,12 +26,19 @@ def _accepted_intent(root: Path) -> None:
     accept_intent(root)
 
 
+def _mark_oa_complete(root: Path) -> None:
+    (root / ".litreview" / "data" / "fulltext_resolution.json").write_text(
+        json.dumps({"coverage_complete": True, "toolkit_oa_full_text_records": 0}), encoding="utf-8"
+    )
+
+
 def test_project_next_requires_seed_checkpoint_after_intent(tmp_path: Path) -> None:
     _accepted_intent(tmp_path)
     step = project_next_step(tmp_path)
     assert step["next_action"] == "ask_seed_literature"
     assert step["human_checkpoint_required"] is True
     assert step["skill"] == "litreview-seeds"
+    assert "papers/user_uploads" in step["researcher_prompt"]
 
 
 def test_seed_skip_persists_and_routes_to_discovery(tmp_path: Path) -> None:
@@ -46,12 +53,7 @@ def test_seed_skip_persists_and_routes_to_discovery(tmp_path: Path) -> None:
 def test_legacy_project_adds_seed_checkpoint_without_deleting_old_work(tmp_path: Path) -> None:
     _accepted_intent(tmp_path)
     state_root = tmp_path / ".litreview"
-    seed = {
-        "paper_id": "legacy-seed",
-        "title": "Legacy seed paper",
-        "source_origin": "user_seed",
-        "status": "user_seed",
-    }
+    seed = {"paper_id": "legacy-seed", "title": "Legacy seed paper", "source_origin": "user_seed", "status": "user_seed"}
     (state_root / "data" / "papers.jsonl").write_text(json.dumps(seed) + "\n", encoding="utf-8")
     old_landscape = {"summary": "Old vertical-slice landscape", "provenance": "ai_synthesis"}
     old_evidence = {"summary": "Old vertical-slice evidence", "provenance": "ai_synthesis"}
@@ -60,7 +62,6 @@ def test_legacy_project_adds_seed_checkpoint_without_deleting_old_work(tmp_path:
     old_output = tmp_path / "outputs" / "03_research_landscape.md"
     old_output.write_text("# Old landscape\n", encoding="utf-8")
 
-    # A real legacy project that previously saved these artifacts also carries saved stage state.
     state_file = state_root / "state.json"
     legacy_state = json.loads(state_file.read_text(encoding="utf-8"))
     legacy_state["stages"]["literature_discovery"]["status"] = "ready_for_review"
@@ -74,11 +75,7 @@ def test_legacy_project_adds_seed_checkpoint_without_deleting_old_work(tmp_path:
 
     accepted = accept_seed_inventory(tmp_path)
     assert accepted["indexed_seed_records"] == 1
-    papers = [
-        json.loads(line)
-        for line in (state_root / "data" / "papers.jsonl").read_text(encoding="utf-8").splitlines()
-        if line.strip()
-    ]
+    papers = [json.loads(line) for line in (state_root / "data" / "papers.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
     assert papers[0]["paper_id"] == "legacy-seed"
     assert json.loads((state_root / "data" / "landscape.json").read_text(encoding="utf-8")) == old_landscape
     assert json.loads((state_root / "data" / "evidence_map.json").read_text(encoding="utf-8")) == old_evidence
@@ -90,7 +87,6 @@ def test_legacy_project_adds_seed_checkpoint_without_deleting_old_work(tmp_path:
     state = json.loads((state_root / "state.json").read_text(encoding="utf-8"))
     assert state["stages"]["literature_discovery"]["status"] == "needs_refresh"
     assert state["stages"]["evidence_mapping"]["status"] == "needs_refresh"
-    # The new campaign invalidates old downstream conclusions without erasing audit history.
     assert (state_root / "data" / "landscape.json").exists()
     assert (state_root / "data" / "evidence_map.json").exists()
     assert old_output.exists()
@@ -100,19 +96,14 @@ def test_project_next_routes_accepted_direction_to_blueprint(tmp_path: Path) -> 
     _accepted_intent(tmp_path)
     skip_seed_literature(tmp_path)
     state_root = tmp_path / ".litreview"
-    campaign = {
-        "campaign_id": "campaign-1",
-        "status": "complete",
-        "iterations": [],
-        "review_checkpoints": [],
-    }
+    campaign = {"campaign_id": "campaign-1", "status": "complete", "iterations": [], "review_checkpoints": []}
     (state_root / "data" / "discovery_campaign.json").write_text(json.dumps(campaign), encoding="utf-8")
     (state_root / "data" / "landscape.json").write_text(json.dumps({"provenance": "ai_synthesis"}), encoding="utf-8")
     (state_root / "data" / "evidence_map.json").write_text(json.dumps({"provenance": "ai_synthesis"}), encoding="utf-8")
     (state_root / "data" / "selected_direction.json").write_text(
-        json.dumps({"direction_id": "d1", "status": "selected", "provenance": "researcher_judgment"}),
-        encoding="utf-8",
+        json.dumps({"direction_id": "d1", "status": "selected", "provenance": "researcher_judgment"}), encoding="utf-8"
     )
+    _mark_oa_complete(tmp_path)
     state_file = state_root / "state.json"
     state = json.loads(state_file.read_text(encoding="utf-8"))
     state["stages"]["literature_discovery"]["status"] = "ready_for_review"
@@ -127,15 +118,14 @@ def test_project_next_routes_accepted_direction_to_blueprint(tmp_path: Path) -> 
     assert step["human_checkpoint_required"] is False
 
 
-def test_project_next_builds_working_draft_before_final_handoff(tmp_path: Path) -> None:
+def test_project_next_builds_package_before_final_handoff(tmp_path: Path) -> None:
     _accepted_intent(tmp_path)
     skip_seed_literature(tmp_path)
     state_root = tmp_path / ".litreview"
-    (state_root / "data" / "discovery_campaign.json").write_text(
-        json.dumps({"campaign_id": "campaign-1", "status": "complete"}), encoding="utf-8"
-    )
+    (state_root / "data" / "discovery_campaign.json").write_text(json.dumps({"campaign_id": "campaign-1", "status": "complete"}), encoding="utf-8")
     for filename in ("landscape.json", "evidence_map.json", "selected_direction.json", "blueprint.json"):
         (state_root / "data" / filename).write_text(json.dumps({"exists": True}), encoding="utf-8")
+    _mark_oa_complete(tmp_path)
     state_file = state_root / "state.json"
     state = json.loads(state_file.read_text(encoding="utf-8"))
     state["stages"]["literature_discovery"]["status"] = "ready_for_review"
@@ -151,18 +141,26 @@ def test_project_next_builds_working_draft_before_final_handoff(tmp_path: Path) 
     assert step["human_checkpoint_required"] is False
 
     (state_root / "data" / "working_draft.json").write_text(
-        json.dumps({"title": "Researcher Working Draft", "sections": []}), encoding="utf-8"
+        json.dumps({"title": "Researcher Working Draft", "saved_at": "2026-08-29T02:00:00+00:00", "sections": []}), encoding="utf-8"
+    )
+    package = project_next_step(tmp_path)
+    assert package["next_action"] == "prepare_researcher_package"
+    assert package["human_checkpoint_required"] is False
+
+    (state_root / "data" / "researcher_package.json").write_text(
+        json.dumps({"generated_at": "2026-08-29T03:00:00+00:00", "references": {"endnote": "references/references_used.enw"}}), encoding="utf-8"
     )
     handoff = project_next_step(tmp_path)
     assert handoff["next_action"] == "researcher_handoff"
     assert handoff["human_checkpoint_required"] is True
     assert handoff["prohibited_next_step"] == "present_unverified_ai_draft_as_submission_ready_final_review"
+    assert handoff["researcher_package"]["references"]["endnote"] == "references/references_used.enw"
     commands = " ".join(handoff["optional_commands"])
     assert "ai-use" in commands
-    assert "export docx" in commands
+    assert "package prepare" in commands
 
 
-def test_cli_exposes_project_next_and_seed_decisions() -> None:
+def test_cli_exposes_project_next_seed_and_package_commands() -> None:
     help_result = runner.invoke(app, ["--help"])
     assert help_result.exit_code == 0
     assert "next" in help_result.stdout
@@ -170,3 +168,6 @@ def test_cli_exposes_project_next_and_seed_decisions() -> None:
     assert seed_help.exit_code == 0
     assert "accept" in seed_help.stdout
     assert "skip" in seed_help.stdout
+    package_help = runner.invoke(app, ["package", "--help"])
+    assert package_help.exit_code == 0
+    assert "prepare" in package_help.stdout

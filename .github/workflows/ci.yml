@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, beta-ready]
   pull_request:
 
 jobs:
@@ -28,7 +28,9 @@ jobs:
           uv run lrc version
           uv run lrc --help
           uv run lrc discover --help
+          uv run lrc fulltext --help
           uv run lrc blueprint --help
+          uv run lrc package --help
           uv run lrc ai-use --help
       - name: Validate Windows installer syntax
         if: runner.os == 'Windows'
