@@ -6,6 +6,7 @@ from pathlib import Path
 import typer
 
 from . import __version__
+from .papers import scan_seed_papers
 from .project import doctor as run_doctor
 from .project import init_project, read_status
 
@@ -14,6 +15,8 @@ app = typer.Typer(
     help="Lit Review Construct local research toolkit.",
     no_args_is_help=True,
 )
+seed_app = typer.Typer(help="Manage researcher-provided seed literature.")
+app.add_typer(seed_app, name="seed")
 
 
 @app.command()
@@ -58,6 +61,29 @@ def status(
     typer.echo(f"Project: {result['name']}")
     typer.echo(f"Stage: {result['current_stage']} ({result['stage_status']})")
     typer.echo(f"Schema: v{result['schema_version']}")
+
+
+@seed_app.command("scan")
+def seed_scan(
+    path: Path = typer.Argument(Path("."), help="Research workspace folder."),
+    source: Path | None = typer.Option(None, "--source", help="Optional local folder containing PDFs."),
+    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
+) -> None:
+    """Index PDF seed literature from the project papers folder or an external folder."""
+    try:
+        result = scan_seed_papers(path, source=source)
+    except FileNotFoundError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+
+    if json_output:
+        typer.echo(json.dumps(result, ensure_ascii=False))
+        return
+
+    typer.echo(f"PDFs detected: {result['pdfs_detected']}")
+    typer.echo(f"Indexed records: {result['records_total']}")
+    typer.echo(f"Previously indexed duplicates: {result['duplicates_seen']}")
+    typer.echo(f"Inventory: {result['inventory']}")
 
 
 @app.command()
