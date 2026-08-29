@@ -104,9 +104,6 @@ def project_next_step(root: Path) -> dict[str, object]:
 
     landscape_status = _stage(state, "literature_discovery")
     landscape_file = root / PROJECT_DIR / "data" / "landscape.json"
-    # literature_discovery is the stage that owns the final Research Landscape in v0.1.
-    # A saved landscape may leave that stage ready_for_review; that is sufficient to move into
-    # Evidence Mapping. needs_refresh means the landscape must be rebuilt.
     if not landscape_file.exists() or landscape_status in {"needs_refresh", "in_progress"}:
         return {
             "next_action": "construct_current_research_landscape",
@@ -119,6 +116,18 @@ def project_next_step(root: Path) -> dict[str, object]:
 
     evidence_status = _stage(state, "evidence_mapping")
     evidence_file = root / PROJECT_DIR / "data" / "evidence_map.json"
+    fulltext_resolution = root / PROJECT_DIR / "data" / "fulltext_resolution.json"
+    # For new projects, attempt lawful OA acquisition before the first Evidence Map. Existing
+    # evidence artifacts are not invalidated automatically merely because this capability was added.
+    if not evidence_file.exists() and not fulltext_resolution.exists():
+        return {
+            "next_action": "resolve_priority_full_text",
+            "stage": "evidence_mapping",
+            "skill": "litreview-fulltext",
+            "human_checkpoint_required": False,
+            "reason": "A current Research Landscape exists. Resolve and acquire lawful OA full text for priority papers before constructing the first Evidence Map.",
+            "commands": ["lrc fulltext acquire . --max-papers 30 --json"],
+        }
     if not evidence_file.exists() or evidence_status in {"not_started", "in_progress", "needs_refresh", "blocked"}:
         return {
             "next_action": "construct_evidence_map",
@@ -171,16 +180,30 @@ def project_next_step(root: Path) -> dict[str, object]:
             "commands": ["lrc blueprint prepare . --json"],
         }
 
+    working_draft = root / PROJECT_DIR / "data" / "working_draft.json"
+    if not working_draft.exists():
+        return {
+            "next_action": "construct_working_draft",
+            "stage": "researcher_handoff",
+            "skill": "litreview-draft",
+            "human_checkpoint_required": False,
+            "reason": "The Blueprint is accepted. Construct an evidence-linked researcher working draft before final handoff so the researcher has prose to verify, rewrite, and develop.",
+            "commands": ["lrc draft prepare . --json"],
+        }
+
     return {
         "next_action": "researcher_handoff",
         "stage": "researcher_handoff",
         "skill": "litreview-ai-use",
         "human_checkpoint_required": True,
-        "reason": "The Blueprint is accepted. The researcher now writes the final literature review; the toolkit may support verification and can optionally generate an activity-grounded AI-use statement.",
-        "researcher_responsibility": "Write and approve the final literature-review prose.",
+        "reason": "The accepted Blueprint and researcher working draft are available. The researcher now verifies sources, rewrites and approves final prose; the toolkit can export Word and optionally generate an activity-grounded AI-use statement.",
+        "researcher_responsibility": "Verify sources and citations, rewrite/approve the working draft, and author the final literature-review text.",
         "optional_commands": [
+            "lrc draft show .",
+            "lrc export docx . --artifact working-draft",
+            "lrc export docx . --artifact handoff",
             "lrc ai-use summary . --json",
             "lrc ai-use generate . --style standard",
         ],
-        "prohibited_next_step": "generate_complete_final_literature_review",
+        "prohibited_next_step": "present_unverified_ai_draft_as_submission_ready_final_review",
     }
