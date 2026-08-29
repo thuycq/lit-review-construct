@@ -12,9 +12,9 @@ The toolkit currently supports **Codex** and **OpenCode** on Windows.
 
 ---
 
-## What Lit Review Construct does
+## What Literature Review Construct does
 
-Lit Review Construct can help you:
+Literature Review Construct can help you:
 
 - define the scope of a literature review;
 - search scholarly literature broadly before narrowing;
@@ -33,7 +33,7 @@ Lit Review Construct can help you:
 
 ## What it does **not** do
 
-Lit Review Construct is **not** designed to:
+Literature Review Construct is **not** designed to:
 
 - write a complete submission-ready literature review for you;
 - make final scholarly judgments on your behalf;
@@ -55,11 +55,11 @@ If you already have Codex or OpenCode installed, the basic setup is:
 2. Double-click **`install.bat`**.
 3. Create a new folder for your research project.
 4. Open that research folder in Codex or OpenCode.
-5. Start Lit Review Construct with a normal-language request.
+5. Start Literature Review Construct with a normal-language request.
 
 Example:
 
-> **Start a new Lit Review Construct project. Help me define the scope of my literature review before searching.**
+> **Start a new Literature Review Construct project. Help me define the scope of my literature review before searching.**
 
 You do **not** need to copy the toolkit into every research project.
 
@@ -76,11 +76,11 @@ The current beta is designed primarily for:
 - either **Codex** or **OpenCode** as the AI host;
 - optional EndNote if you want to import the generated reference file.
 
-You do **not** need to install Python manually. The Lit Review Construct installer handles its own Python runtime through `uv`.
+You do **not** need to install Python manually. The Literature Review Construct installer handles its own Python runtime through `uv`.
 
 ---
 
-# Option A — Use Lit Review Construct with Codex
+# Option A — Use Literature Review Construct with Codex
 
 Codex is available through OpenAI and can be used from the desktop app, web, CLI, or IDE. For this beta, the easiest path is to use **Codex on the desktop and open your research folder as the working folder**.
 
@@ -94,23 +94,23 @@ Official Codex information:
 1. Install or open the ChatGPT/Codex desktop experience for Windows.
 2. Sign in with your ChatGPT account.
 3. Confirm that you can open Codex and work with a local folder.
-4. Install Lit Review Construct using `install.bat` as described below.
-5. Close and reopen Codex after the Lit Review Construct installation.
+4. Install Literature Review Construct using `install.bat` as described below.
+5. Close and reopen Codex after the Literature Review Construct installation.
 6. Create or choose a dedicated research folder and open that folder in Codex.
 
 Then start with:
 
-> **Start a new Lit Review Construct project in this folder. Help me define the Research Intent before you begin searching.**
+> **Start a new Literature Review Construct project in this folder. Help me define the Research Intent before you begin searching.**
 
 For an existing project, use:
 
-> **Continue this Lit Review Construct project from its saved state. Do not repeat completed steps, and only stop when you need a research decision from me.**
+> **Continue this Literature Review Construct project from its saved state. Do not repeat completed steps, and only stop when you need a research decision from me.**
 
-Lit Review Construct uses the access already available through your Codex/ChatGPT setup. It does not store your ChatGPT password or account credentials inside the research project.
+Literature Review Construct uses the access already available through your Codex/ChatGPT setup. It does not store your ChatGPT password or account credentials inside the research project.
 
 ---
 
-# Option B — Use Lit Review Construct with OpenCode
+# Option B — Use Literature Review Construct with OpenCode
 
 OpenCode is an open-source AI coding agent that can run in a terminal, desktop app, or IDE environment.
 
@@ -120,7 +120,7 @@ Official OpenCode documentation:
 
 ## Install OpenCode on Windows
 
-For the Lit Review Construct beta, the simplest tested setup is **OpenCode running directly in Windows**, because `install.bat` installs the Lit Review Construct skills and commands into your Windows user profile.
+For the Literature Review Construct beta, the simplest tested setup is **OpenCode running directly in Windows**, because `install.bat` installs the Lit Review Construct skills and commands into your Windows user profile.
 
 You can install OpenCode using one of the methods documented by OpenCode.
 
@@ -142,7 +142,7 @@ choco install opencode
 scoop install opencode
 ```
 
-OpenCode's official documentation also recommends WSL for some Windows use cases. WSL is a separate environment from native Windows. If you choose to run OpenCode inside WSL, Lit Review Construct must also be installed inside that WSL environment rather than relying on the Windows installation.
+OpenCode's official documentation also recommends WSL for some Windows use cases. WSL is a separate environment from native Windows. If you choose to run OpenCode inside WSL, Literature Review Construct must also be installed inside that WSL environment rather than relying on the Windows installation.
 
 ## Connect a model provider
 
@@ -153,11 +153,11 @@ OpenCode needs access to an AI model provider.
 3. Choose the provider you want to use.
 4. Follow OpenCode's authentication instructions.
 
-Lit Review Construct does not require a particular provider. Model quality, limits, and cost depend on the provider and model you choose.
+Literature Review Construct does not require a particular provider. Model quality, limits, and cost depend on the provider and model you choose.
 
-## Start a Lit Review Construct project in OpenCode
+## Start a Literature Review Construct project in OpenCode
 
-After installing Lit Review Construct:
+After installing Literature Review Construct:
 
 1. Close and reopen OpenCode.
 2. Open your dedicated research folder in OpenCode.
@@ -167,17 +167,17 @@ After installing Lit Review Construct:
 /lr
 ```
 
-If the folder is new, `/lr` should start the Lit Review Construct workflow.
+If the folder is new, `/lr` should start the Literature Review Construct workflow.
 
-If the folder already contains a Lit Review Construct project, `/lr` should continue from the saved project state.
+If the folder already contains a Literature Review Construct project, `/lr` should continue from the saved project state.
 
 You can also use a normal prompt instead:
 
-> **Continue this Lit Review Construct project from its saved state. Only stop when you need a research decision from me.**
+> **Continue this Literature Review Construct project from its saved state. Only stop when you need a research decision from me.**
 
 ---
 
-# Install Lit Review Construct
+# Install Literature Review Construct
 
 You only need to install the toolkit **once per computer/environment**.
 
@@ -209,10 +209,10 @@ Then double-click `install.bat`, or run it from Windows.
 
 The installer automatically:
 
-- prepares the Python runtime required by Lit Review Construct;
+- prepares the Python runtime required by Literature Review Construct;
 - installs the `lrc` runtime command;
-- installs Lit Review Construct skills for Codex;
-- installs Lit Review Construct skills for OpenCode;
+- installs Literature Review Construct skills for Codex;
+- installs Literature Review Construct skills for OpenCode;
 - installs the OpenCode `/lr` helper command.
 
 After installation, close and reopen Codex/OpenCode so the host can see the new skills and commands.
@@ -239,7 +239,7 @@ Most researchers do not need to use the `lrc` command directly during normal wor
 
 This distinction is important.
 
-The **toolkit folder** is where Lit Review Construct is installed from:
+The **toolkit folder** is where Literature Review Construct is installed from:
 
 ```text
 C:\Tools\literature-review-construct\
@@ -257,12 +257,12 @@ For another study, create another folder:
 D:\Research\Working_Capital_Project\
 ```
 
-You do **not** need a new copy of the Lit Review Construct repository for every study.
+You do **not** need a new copy of the Literature Review Construct repository for every study.
 
 Think of it like this:
 
 ```text
-Lit Review Construct toolkit
+Literature Review Construct toolkit
         ↓ installed once
 Codex / OpenCode
         ↓ works with
@@ -279,11 +279,11 @@ You can begin with only a topic. You do not need a perfect research question bef
 
 ## Simple start
 
-> **Start a new Lit Review Construct project. My topic is financial liberalization and bank efficiency in Vietnam. Help me define the literature scope before searching.**
+> **Start a new Literature Review Construct project. My topic is financial liberalization and bank efficiency in Vietnam. Help me define the literature scope before searching.**
 
 ## More structured start
 
-> **Start a new Lit Review Construct project using the following brief. Help me check the scope first, then continue with literature discovery.**
+> **Start a new Literature Review Construct project using the following brief. Help me check the scope first, then continue with literature discovery.**
 >
 > **Topic:**  
 > **Research question or early idea:**  
@@ -302,7 +302,7 @@ The toolkit should ask only for information that materially affects the literatu
 
 # If you already have papers
 
-After the project is initialized, Lit Review Construct creates:
+After the project is initialized, Literature Review Construct creates:
 
 ```text
 papers/user_uploads/
@@ -322,7 +322,7 @@ If you do not have any papers, simply say so when asked and continue.
 
 # How the workflow works
 
-Lit Review Construct does a lot of technical work internally, but the researcher should only need to make a small number of meaningful academic decisions.
+Literature Review Construct does a lot of technical work internally, but the researcher should only need to make a small number of meaningful academic decisions.
 
 ## 1. Research Intent
 
@@ -369,7 +369,7 @@ The researcher still makes the final decision to finish discovery.
 
 ## 3. Research Landscape and Evidence Map
 
-Once discovery is finished, Lit Review Construct organizes the retained literature into a Research Landscape.
+Once discovery is finished, Literature Review Construct organizes the retained literature into a Research Landscape.
 
 This helps you understand:
 
@@ -409,7 +409,7 @@ You may:
 
 ## 5. Literature Review Blueprint
 
-After you select a Research Direction, Lit Review Construct builds a Literature Review Blueprint.
+After you select a Research Direction, Literature Review Construct builds a Literature Review Blueprint.
 
 The Blueprint is the main architecture for writing the review. It explains:
 
@@ -429,7 +429,7 @@ You explicitly accept or revise the Blueprint before the toolkit creates Working
 
 ## 6. Working Draft and Researcher Handoff
 
-After the Blueprint is accepted, Lit Review Construct creates **bounded Working Draft fragments**.
+After the Blueprint is accepted, Literature Review Construct creates **bounded Working Draft fragments**.
 
 These fragments are designed to help you begin writing, not to replace your writing.
 
@@ -444,7 +444,7 @@ A useful prompt is:
 
 > **Show me the actual Working Draft fragments section by section. Keep source-verification needs and researcher decisions visible, and do not turn them into a submission-ready literature review.**
 
-At the final handoff, Lit Review Construct prepares the researcher-facing project package automatically.
+At the final handoff, Literature Review Construct prepares the researcher-facing project package automatically.
 
 ---
 
@@ -454,15 +454,15 @@ You do not need to use these exact words. They are simply safe, clear prompts fo
 
 ## Start a project
 
-> **Start a new Lit Review Construct project. Help me define the literature scope before searching.**
+> **Start a new Literature Review Construct project. Help me define the literature scope before searching.**
 
 ## Fast start from a research brief
 
-> **Start a new Lit Review Construct project using the research brief below. Use everything I have already provided, ask only for missing information that materially affects the search, and then continue with the workflow.**
+> **Start a new Literature Review Construct project using the research brief below. Use everything I have already provided, ask only for missing information that materially affects the search, and then continue with the workflow.**
 
 ## Continue an existing project
 
-> **Continue this Lit Review Construct project from its saved state. Do not repeat completed work. Continue technical steps automatically and stop only when you need a research decision from me.**
+> **Continue this Literature Review Construct project from its saved state. Do not repeat completed work. Continue technical steps automatically and stop only when you need a research decision from me.**
 
 ## Add your own papers
 
@@ -498,7 +498,7 @@ You do not need to use these exact words. They are simply safe, clear prompts fo
 
 ## Generate an AI-use statement
 
-> **Generate the optional AI-use statement using only activities that were actually recorded in this Lit Review Construct project.**
+> **Generate the optional AI-use statement using only activities that were actually recorded in this Literature Review Construct project.**
 
 ---
 
@@ -649,7 +649,7 @@ Those technical details remain available separately when debugging is actually n
 
 # Understanding evidence status
 
-Lit Review Construct separates three ideas that are easy to confuse.
+Literature Review Construct separates three ideas that are easy to confuse.
 
 ## 1. Full text available
 
@@ -675,7 +675,7 @@ The toolkit should never silently convert “PDF downloaded” into “verified 
 
 # Open-access full text
 
-Lit Review Construct may use lawful open/public locations reported by scholarly services such as OpenAlex, Semantic Scholar, and optional Unpaywall support.
+Literature Review Construct may use lawful open/public locations reported by scholarly services such as OpenAlex, Semantic Scholar, and optional Unpaywall support.
 
 It does not bypass:
 
@@ -698,7 +698,7 @@ You can close the host and return later without relying on the old chat conversa
 
 Open the same research folder and say:
 
-> **Continue this Lit Review Construct project from its saved state. Do not repeat completed steps.**
+> **Continue this Literature Review Construct project from its saved state. Do not repeat completed steps.**
 
 ## In OpenCode
 
@@ -721,13 +721,13 @@ For example:
 1. start discovery in OpenCode;
 2. close OpenCode;
 3. open the same research folder in Codex;
-4. ask Codex to continue the Lit Review Construct project.
+4. ask Codex to continue the Literature Review Construct project.
 
 The local project state — not the old chat conversation — is the source of truth.
 
 ---
 
-# Updating Lit Review Construct
+# Updating Literature Review Construct
 
 ## If you cloned the repository
 
@@ -763,7 +763,7 @@ The most useful beta feedback is about the **researcher experience**, not low-le
 
 While testing, notice whether:
 
-- the toolkit starts only when you actually want to use Lit Review Construct;
+- the toolkit starts only when you actually want to use Literature Review Construct;
 - it asks you for meaningful research decisions rather than technical confirmations;
 - discovery feels broad enough before narrowing;
 - it avoids repeatedly asking you to “refine” the same literature;
@@ -791,7 +791,7 @@ You normally do **not** need to send files from `.litreview/` unless debugging s
 
 # Frequently asked questions
 
-## Does Lit Review Construct write the final literature review?
+## Does Literature Review Construct write the final literature review?
 
 No.
 
@@ -810,11 +810,11 @@ It depends on the host.
 - **Codex:** use the access available through your OpenAI/ChatGPT account.
 - **OpenCode:** connect a supported model provider through OpenCode. Provider authentication, free tiers, subscription plans, and API costs depend on the provider you select.
 
-Lit Review Construct itself does not require you to store a provider key inside the research folder.
+Literature Review Construct itself does not require you to store a provider key inside the research folder.
 
 ## Can I use free models in OpenCode?
 
-If OpenCode provides access to a free or included model through one of its configured providers, Lit Review Construct can use that host setup. The toolkit does not require one specific model.
+If OpenCode provides access to a free or included model through one of its configured providers, Literature Review Construct can use that host setup. The toolkit does not require one specific model.
 
 Output quality may vary by model.
 
@@ -828,7 +828,7 @@ Place them in:
 papers/user_uploads/
 ```
 
-Then tell Lit Review Construct to scan them as seed literature.
+Then tell Literature Review Construct to scan them as seed literature.
 
 ## Will my uploaded papers automatically be treated as relevant?
 
@@ -858,7 +858,7 @@ You may obtain the paper through your institution or another lawful source and p
 
 Yes.
 
-Open the same research folder in the other host and continue from the saved Lit Review Construct state.
+Open the same research folder in the other host and continue from the saved Literature Review Construct state.
 
 ## Do I need to understand the `.litreview` folder?
 
@@ -887,7 +887,7 @@ These limitations are part of the beta-testing scope rather than hidden assumpti
 
 # Optional AI-use statement
 
-At the end of a project, Lit Review Construct can optionally generate an AI-use statement based on the AI activities actually recorded in the project.
+At the end of a project, Literature Review Construct can optionally generate an AI-use statement based on the AI activities actually recorded in the project.
 
 For example, the statement may describe assistance with:
 
@@ -927,6 +927,6 @@ MIT License.
 
 ## Beta principle
 
-**Lit Review Construct should remove technical burden, not remove scholarly responsibility.**
+**Literature Review Construct should remove technical burden, not remove scholarly responsibility.**
 
 The toolkit should do the repetitive technical work automatically and ask the researcher only when a meaningful academic decision is required.
