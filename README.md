@@ -4,7 +4,7 @@
 
 **Current beta:** **`0.1.0b1`**
 
-Lit Review Construct is a local-first toolkit that helps researchers **find, understand, organize, and structure the literature for a research project**.
+Literature Review Construct is a local-first toolkit that helps researchers **find, understand, organize, and structure the literature for a research project**.
 
 It is designed for researchers who want AI assistance with literature discovery and synthesis, but still want to keep the important academic decisions — source verification, interpretation, research direction, citation choice, and final writing — under human control.
 
