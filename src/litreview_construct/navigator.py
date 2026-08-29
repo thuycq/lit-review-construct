@@ -35,6 +35,19 @@ def _load_jsonl(path: Path) -> list[dict[str, object]]:
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
+def _plan_is_after_decision(
+    plan: dict[str, object] | None,
+    decision: dict[str, object] | None,
+    *,
+    phase: str,
+) -> bool:
+    if not plan or plan.get("phase") != phase or not decision:
+        return False
+    saved_at = str(plan.get("saved_at") or "")
+    decided_at = str(decision.get("timestamp") or "")
+    return bool(saved_at and decided_at and saved_at > decided_at)
+
+
 def discovery_next_step(root: Path) -> dict[str, object]:
     """Return the deterministic structural next step for the discovery funnel.
 
@@ -47,7 +60,6 @@ def discovery_next_step(root: Path) -> dict[str, object]:
     if not project_file.exists() or not state_file.exists():
         raise FileNotFoundError(f"No Lit Review Construct project found at {root}")
 
-    project = yaml.safe_load(project_file.read_text(encoding="utf-8"))
     state = json.loads(state_file.read_text(encoding="utf-8"))
     intent_status = str(state["stages"]["research_intent"]["status"])
     if intent_status != "accepted":
@@ -119,12 +131,21 @@ def discovery_next_step(root: Path) -> dict[str, object]:
 
     latest_checkpoint = checkpoints[-1] if checkpoints else None
     latest_decision = latest_checkpoint.get("decision") if isinstance(latest_checkpoint, dict) else None
+    decision_dict = latest_decision if isinstance(latest_decision, dict) else None
     campaign_revision = int(campaign.get("revision") or 0)
     reviewed_revision = int(latest_checkpoint.get("iteration_revision") or 0) if latest_checkpoint else -1
     new_retrieval_since_review = campaign_revision > reviewed_revision
 
-    if campaign_status == "collecting" and latest_decision:
-        if isinstance(latest_decision, dict) and latest_decision.get("action") == "continue" and not new_retrieval_since_review:
+    if campaign_status == "collecting" and decision_dict:
+        if decision_dict.get("action") == "continue" and not new_retrieval_since_review:
+            if _plan_is_after_decision(current_plan, decision_dict, phase="broad"):
+                return {
+                    "next_action": "run_saved_query_plan",
+                    "human_checkpoint_required": False,
+                    "reason": "The researcher chose to continue and a new broad Query Plan has already been saved.",
+                    "campaign_status": campaign_status,
+                    "commands": ["lrc discover run-plan ."],
+                }
             return {
                 "next_action": "prepare_broad_query_plan",
                 "human_checkpoint_required": False,
@@ -133,8 +154,17 @@ def discovery_next_step(root: Path) -> dict[str, object]:
                 "commands": ["lrc discover prepare-plan . --phase broad --json"],
             }
 
-    if campaign_status == "focused" and latest_decision:
-        if isinstance(latest_decision, dict) and latest_decision.get("action") == "focus" and not new_retrieval_since_review:
+    if campaign_status == "focused" and decision_dict:
+        if decision_dict.get("action") == "focus" and not new_retrieval_since_review:
+            if _plan_is_after_decision(current_plan, decision_dict, phase="focused"):
+                return {
+                    "next_action": "run_saved_query_plan",
+                    "human_checkpoint_required": False,
+                    "reason": "The researcher selected a focus and a new focused Query Plan has already been saved.",
+                    "campaign_status": campaign_status,
+                    "selected_focuses": campaign.get("selected_focuses") or [],
+                    "commands": ["lrc discover run-plan ."],
+                }
             return {
                 "next_action": "prepare_focused_query_plan",
                 "human_checkpoint_required": False,
@@ -187,8 +217,6 @@ def discovery_next_step(root: Path) -> dict[str, object]:
             "commands": ["lrc discover prepare-review . --after-triage --json"],
         }
 
-    # This path covers older/dev campaign records where a review checkpoint exists but triage has
-    # not started. It is safer to begin triage than to infer a substantive next direction.
     return {
         "next_action": "continue_triage",
         "human_checkpoint_required": False,
