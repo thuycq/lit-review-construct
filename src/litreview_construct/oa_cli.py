@@ -7,6 +7,7 @@ import typer
 
 from .app_cli import fulltext_app
 from .oa_fulltext import acquire_open_access_full_text
+from .paper_library import sync_acquired_oa_library
 
 
 @fulltext_app.command("acquire")
@@ -17,7 +18,7 @@ def fulltext_acquire(
         "--paper-id",
         help="Priority paper_id; repeatable. Defaults to Blueprint/Direction/Landscape priorities.",
     ),
-    max_papers: int = typer.Option(30, "--max-papers", min=1, max=100),
+    max_papers: int = typer.Option(100, "--max-papers", min=1, max=100),
     resolve_only: bool = typer.Option(
         False,
         "--resolve-only",
@@ -34,7 +35,13 @@ def fulltext_acquire(
             download=not resolve_only,
             max_pdf_mb=max_pdf_mb,
         )
-    except (FileNotFoundError, ValueError) as exc:
+        library = (
+            sync_acquired_oa_library(path)
+            if not resolve_only
+            else {"oa_full_text_available": 0, "copied_to_researcher_library": 0, "library": "papers/full_text"}
+        )
+        result["researcher_library"] = library
+    except (FileNotFoundError, ValueError, OSError) as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=1) from exc
     if json_output:
@@ -46,6 +53,7 @@ def fulltext_acquire(
     typer.echo(f"OA PDFs downloaded: {result['downloaded']}")
     typer.echo(f"OA landing pages only: {result['resolved_landing']}")
     typer.echo(f"Unresolved/closed: {result['unresolved_or_closed']}")
+    typer.echo("Researcher paper library: papers/full_text (DOI-based filenames where available)")
     if not result["unpaywall_enabled"]:
         typer.echo("Note: set UNPAYWALL_EMAIL to enable DOI fallback through Unpaywall.")
     if result["provider_failures"]:
