@@ -18,6 +18,8 @@ OPENALEX_BASE_URL = "https://api.openalex.org"
 S2_BASE_URL = "https://api.semanticscholar.org/graph/v1"
 UNPAYWALL_BASE_URL = "https://api.unpaywall.org/v2"
 VERSION_RANK = {"publishedVersion": 0, "acceptedVersion": 1, "submittedVersion": 2}
+MAX_AUTOMATIC_RETRIES = 2
+CHECKPOINT_EVERY = 5
 
 
 def _now() -> str:
@@ -51,7 +53,12 @@ def _has_local_full_text(row: dict[str, object]) -> bool:
     return bool(row.get("file_reference") or row.get("file_hash"))
 
 
-def _priority_ids(root: Path, records: list[dict[str, object]], explicit: list[str] | None, max_papers: int) -> list[str]:
+def _priority_ids(
+    root: Path,
+    records: list[dict[str, object]],
+    explicit: list[str] | None,
+    max_papers: int,
+) -> list[str]:
     known = {str(row.get("paper_id")) for row in records if row.get("paper_id")}
     if explicit:
         unknown = sorted(set(explicit) - known)
@@ -129,7 +136,10 @@ def _candidate(
     }
 
 
-def _openalex_candidates(client: httpx.Client, row: dict[str, object]) -> tuple[list[dict[str, object]], str | None]:
+def _openalex_candidates(
+    client: httpx.Client,
+    row: dict[str, object],
+) -> tuple[list[dict[str, object]], str | None]:
     api_key = os.getenv("OPENALEX_API_KEY")
     params: dict[str, object] = {}
     if api_key:
@@ -160,6 +170,7 @@ def _openalex_candidates(client: httpx.Client, row: dict[str, object]) -> tuple[
     for location in work.get("locations") or []:
         if isinstance(location, dict) and location.get("is_oa"):
             locations.append(location)
+
     seen: set[tuple[str | None, str | None]] = set()
     for location in locations:
         if not isinstance(location, dict):
@@ -181,16 +192,19 @@ def _openalex_candidates(client: httpx.Client, row: dict[str, object]) -> tuple[
         )
         if item:
             candidates.append(item)
-    resolved_id = str(work.get("id")) if work.get("id") else None
-    return candidates, resolved_id
+    return candidates, str(work.get("id")) if work.get("id") else None
 
 
-def _s2_candidates(client: httpx.Client, row: dict[str, object]) -> tuple[list[dict[str, object]], str | None]:
+def _s2_candidates(
+    client: httpx.Client,
+    row: dict[str, object],
+) -> tuple[list[dict[str, object]], str | None]:
     identifier = str(row.get("s2_paper_id") or "")
     if not identifier and row.get("doi"):
         identifier = f"DOI:{row['doi']}"
     if not identifier:
         return [], None
+
     headers: dict[str, str] = {}
     api_key = os.getenv("SEMANTIC_SCHOLAR_API_KEY")
     if api_key:
@@ -232,11 +246,14 @@ def _unpaywall_candidates(client: httpx.Client, row: dict[str, object]) -> list[
     payload = response.json()
     if not payload.get("is_oa"):
         return []
+
     locations = []
     best = payload.get("best_oa_location")
     if isinstance(best, dict):
         locations.append(best)
-    locations.extend(location for location in payload.get("oa_locations") or [] if isinstance(location, dict))
+    locations.extend(
+        location for location in payload.get("oa_locations") or [] if isinstance(location, dict)
+    )
     candidates: list[dict[str, object]] = []
     seen: set[tuple[str | None, str | None]] = set()
     for location in locations:
@@ -274,25 +291,32 @@ def _sort_candidates(candidates: list[dict[str, object]]) -> list[dict[str, obje
 
 def _download_pdf(client: httpx.Client, url: str, target: Path, max_bytes: int) -> dict[str, object]:
     tmp = target.with_suffix(".tmp")
+    tmp.unlink(missing_ok=True)
     total = 0
     first = b""
-    with client.stream("GET", url, follow_redirects=True) as response:
-        response.raise_for_status()
-        content_type = str(response.headers.get("content-type") or "").lower()
-        with tmp.open("wb") as handle:
-            for chunk in response.iter_bytes(1024 * 256):
-                if not chunk:
-                    continue
-                if not first:
-                    first = chunk[:8]
-                total += len(chunk)
-                if total > max_bytes:
-                    raise ValueError(f"OA PDF exceeds the configured maximum size of {max_bytes} bytes.")
-                handle.write(chunk)
-    if "pdf" not in content_type and not first.startswith(b"%PDF-"):
+    try:
+        with client.stream("GET", url, follow_redirects=True) as response:
+            response.raise_for_status()
+            content_type = str(response.headers.get("content-type") or "").lower()
+            with tmp.open("wb") as handle:
+                for chunk in response.iter_bytes(1024 * 256):
+                    if not chunk:
+                        continue
+                    if not first:
+                        first = chunk[:8]
+                    total += len(chunk)
+                    if total > max_bytes:
+                        raise ValueError(
+                            f"OA PDF exceeds the configured maximum size of {max_bytes} bytes."
+                        )
+                    handle.write(chunk)
+        if "pdf" not in content_type and not first.startswith(b"%PDF-"):
+            raise ValueError("Resolved OA URL did not return a PDF document.")
+        tmp.replace(target)
+    except Exception:
         tmp.unlink(missing_ok=True)
-        raise ValueError("Resolved OA URL did not return a PDF document.")
-    tmp.replace(target)
+        raise
+
     digest = hashlib.sha256(target.read_bytes()).hexdigest()
     try:
         page_count = len(PdfReader(str(target)).pages)
@@ -311,6 +335,22 @@ def _download_pdf(client: httpx.Client, url: str, target: Path, max_bytes: int) 
     }
 
 
+def _retryable_error(exc: Exception) -> bool:
+    if isinstance(exc, httpx.HTTPStatusError):
+        status = exc.response.status_code
+        return status in {408, 425, 429} or status >= 500
+    if isinstance(exc, httpx.RequestError):
+        return True
+    if isinstance(exc, OSError):
+        return getattr(exc, "winerror", None) in {10054, 10060, 10061, 11001}
+    return False
+
+
+def _checkpoint(papers_file: Path, records: list[dict[str, object]], processed: int) -> None:
+    if processed and processed % CHECKPOINT_EVERY == 0:
+        _write_jsonl(papers_file, records)
+
+
 def acquire_open_access_full_text(
     root: Path,
     *,
@@ -324,6 +364,7 @@ def acquire_open_access_full_text(
         raise ValueError("max_papers must be between 1 and 100.")
     if not 1 <= max_pdf_mb <= 200:
         raise ValueError("max_pdf_mb must be between 1 and 200.")
+
     root = _project_root(root)
     state_root = root / PROJECT_DIR
     papers_file = state_root / "data" / "papers.jsonl"
@@ -340,6 +381,9 @@ def acquire_open_access_full_text(
     resolved_pdf = 0
     resolved_landing = 0
     unresolved = 0
+    retryable_errors = 0
+    provider_error_exhausted = 0
+    processed = 0
 
     with httpx.Client(
         timeout=timeout,
@@ -353,7 +397,15 @@ def acquire_open_access_full_text(
                 outcomes.append({"paper_id": paper_id, "status": "already_local"})
                 continue
 
+            attempt_no = int(row.get("oa_resolution_attempts") or 0) + 1
+            row["oa_resolution_attempts"] = attempt_no
+            row["oa_resolved_at"] = _now()
+            row.pop("oa_download_error", None)
+            row.pop("oa_download_attempts", None)
+            row.pop("oa_best_location", None)
+
             candidates: list[dict[str, object]] = []
+            paper_provider_failures: list[dict[str, object]] = []
             for provider, resolver in (
                 ("openalex", _openalex_candidates),
                 ("semantic_scholar", _s2_candidates),
@@ -366,70 +418,164 @@ def acquire_open_access_full_text(
                     if provider == "semantic_scholar" and resolved_id and not row.get("s2_paper_id"):
                         row["s2_paper_id"] = resolved_id
                 except httpx.HTTPError as exc:
-                    provider_failures.append({"paper_id": paper_id, "provider": provider, "error": str(exc)})
+                    failure = {"paper_id": paper_id, "provider": provider, "error": str(exc)}
+                    provider_failures.append(failure)
+                    paper_provider_failures.append(failure)
             try:
                 candidates.extend(_unpaywall_candidates(client, row))
             except httpx.HTTPError as exc:
-                provider_failures.append({"paper_id": paper_id, "provider": "unpaywall", "error": str(exc)})
+                failure = {"paper_id": paper_id, "provider": "unpaywall", "error": str(exc)}
+                provider_failures.append(failure)
+                paper_provider_failures.append(failure)
 
             ordered = _sort_candidates(candidates)
             row["oa_candidates"] = ordered[:12]
-            row["oa_resolved_at"] = _now()
-            best_pdf = next((item for item in ordered if item.get("pdf_url")), None)
+            pdf_candidates = [item for item in ordered if item.get("pdf_url")]
             best_any = ordered[0] if ordered else None
 
-            if best_pdf:
+            if pdf_candidates:
                 resolved_pdf += 1
-                row["oa_resolution_status"] = "resolved_pdf"
-                row["oa_best_location"] = best_pdf
+                row["oa_best_location"] = pdf_candidates[0]
                 if download:
                     target = cache_root / f"{paper_id}.pdf"
-                    try:
-                        meta = _download_pdf(
-                            client,
-                            str(best_pdf["pdf_url"]),
-                            target,
-                            max_bytes=max_pdf_mb * 1024 * 1024,
+                    attempts: list[dict[str, object]] = []
+                    seen_urls: set[str] = set()
+                    success = False
+                    had_retryable_failure = False
+
+                    for candidate in pdf_candidates:
+                        url = str(candidate.get("pdf_url") or "")
+                        if not url or url in seen_urls:
+                            continue
+                        seen_urls.add(url)
+                        try:
+                            meta = _download_pdf(
+                                client,
+                                url,
+                                target,
+                                max_bytes=max_pdf_mb * 1024 * 1024,
+                            )
+                            reference = str(target.relative_to(root))
+                            row["file_reference"] = reference
+                            row["location_type"] = "managed"
+                            row["file_instances"] = [
+                                {"file_reference": reference, "location_type": "managed"}
+                            ]
+                            row["file_hash"] = meta["file_hash"]
+                            row["page_count"] = meta["page_count"]
+                            row["parse_status"] = meta["parse_status"]
+                            row["parse_error"] = meta["parse_error"]
+                            row["oa_resolution_status"] = "downloaded"
+                            row["oa_best_location"] = candidate
+                            row["full_text_provenance"] = {
+                                "access": "open_access",
+                                "provider": candidate.get("provider"),
+                                "pdf_url": candidate.get("pdf_url"),
+                                "landing_url": candidate.get("landing_url"),
+                                "version": candidate.get("version"),
+                                "license": candidate.get("license"),
+                                "acquired_at": _now(),
+                            }
+                            row["updated_at"] = _now()
+                            row.pop("oa_retry_count", None)
+                            downloaded += 1
+                            outcomes.append(
+                                {
+                                    "paper_id": paper_id,
+                                    "status": "downloaded",
+                                    "provider": candidate.get("provider"),
+                                    "file_reference": reference,
+                                }
+                            )
+                            success = True
+                            break
+                        except (httpx.HTTPError, OSError, ValueError) as exc:
+                            retryable = _retryable_error(exc)
+                            had_retryable_failure = had_retryable_failure or retryable
+                            attempts.append(
+                                {
+                                    "provider": candidate.get("provider"),
+                                    "url": url,
+                                    "error": str(exc),
+                                    "retryable": retryable,
+                                }
+                            )
+
+                    if success:
+                        processed += 1
+                        _checkpoint(papers_file, records, processed)
+                        continue
+
+                    row["oa_download_attempts"] = attempts
+                    row["oa_download_error"] = (
+                        attempts[-1]["error"] if attempts else "All resolved OA PDF candidates failed."
+                    )
+                    if had_retryable_failure and attempt_no < MAX_AUTOMATIC_RETRIES:
+                        row["oa_resolution_status"] = "retryable_error"
+                        row["oa_retry_count"] = attempt_no
+                        retryable_errors += 1
+                        outcomes.append(
+                            {
+                                "paper_id": paper_id,
+                                "status": "retryable_error",
+                                "attempt": attempt_no,
+                                "download_attempts": len(attempts),
+                            }
                         )
-                        reference = str(target.relative_to(root))
-                        row["file_reference"] = reference
-                        row["location_type"] = "managed"
-                        row["file_instances"] = [{"file_reference": reference, "location_type": "managed"}]
-                        row["file_hash"] = meta["file_hash"]
-                        row["page_count"] = meta["page_count"]
-                        row["parse_status"] = meta["parse_status"]
-                        row["parse_error"] = meta["parse_error"]
-                        row["full_text_provenance"] = {
-                            "access": "open_access",
-                            "provider": best_pdf.get("provider"),
-                            "pdf_url": best_pdf.get("pdf_url"),
-                            "landing_url": best_pdf.get("landing_url"),
-                            "version": best_pdf.get("version"),
-                            "license": best_pdf.get("license"),
-                            "acquired_at": _now(),
+                    else:
+                        row["oa_resolution_status"] = "resolved_pdf_download_failed"
+                        outcomes.append(
+                            {
+                                "paper_id": paper_id,
+                                "status": "resolved_pdf_download_failed",
+                                "download_attempts": len(attempts),
+                            }
+                        )
+                else:
+                    row["oa_resolution_status"] = "resolved_pdf"
+                    outcomes.append(
+                        {
+                            "paper_id": paper_id,
+                            "status": "resolved_pdf",
+                            "provider": pdf_candidates[0].get("provider"),
+                            "pdf_url": pdf_candidates[0].get("pdf_url"),
                         }
-                        downloaded += 1
-                        outcomes.append({"paper_id": paper_id, "status": "downloaded", "provider": best_pdf.get("provider"), "file_reference": reference})
-                        continue
-                    except (httpx.HTTPError, OSError, ValueError) as exc:
-                        row["oa_download_error"] = str(exc)
-                        outcomes.append({"paper_id": paper_id, "status": "resolved_pdf_download_failed", "provider": best_pdf.get("provider"), "error": str(exc)})
-                        continue
-                outcomes.append({"paper_id": paper_id, "status": "resolved_pdf", "provider": best_pdf.get("provider"), "pdf_url": best_pdf.get("pdf_url")})
+                    )
             elif best_any:
                 resolved_landing += 1
                 row["oa_resolution_status"] = "resolved_landing"
                 row["oa_best_location"] = best_any
-                outcomes.append({"paper_id": paper_id, "status": "resolved_landing", "provider": best_any.get("provider"), "landing_url": best_any.get("landing_url")})
+                outcomes.append(
+                    {
+                        "paper_id": paper_id,
+                        "status": "resolved_landing",
+                        "provider": best_any.get("provider"),
+                        "landing_url": best_any.get("landing_url"),
+                    }
+                )
+            elif paper_provider_failures and attempt_no < MAX_AUTOMATIC_RETRIES:
+                row["oa_resolution_status"] = "retryable_error"
+                row["oa_retry_count"] = attempt_no
+                retryable_errors += 1
+                outcomes.append(
+                    {"paper_id": paper_id, "status": "retryable_error", "attempt": attempt_no}
+                )
+            elif paper_provider_failures:
+                row["oa_resolution_status"] = "provider_error_exhausted"
+                provider_error_exhausted += 1
+                outcomes.append({"paper_id": paper_id, "status": "provider_error_exhausted"})
             else:
                 unresolved += 1
                 row["oa_resolution_status"] = "unresolved_or_closed"
                 outcomes.append({"paper_id": paper_id, "status": "unresolved_or_closed"})
+
             row["updated_at"] = _now()
+            processed += 1
+            _checkpoint(papers_file, records, processed)
 
     _write_jsonl(papers_file, records)
     report = {
-        "schema_version": 1,
+        "schema_version": 2,
         "timestamp": _now(),
         "selected_papers": len(selected_ids),
         "download_requested": download,
@@ -438,10 +584,15 @@ def acquire_open_access_full_text(
         "downloaded": downloaded,
         "resolved_landing": resolved_landing,
         "unresolved_or_closed": unresolved,
+        "retryable_errors": retryable_errors,
+        "provider_error_exhausted": provider_error_exhausted,
         "unpaywall_enabled": bool(os.getenv("UNPAYWALL_EMAIL") or os.getenv("CROSSREF_MAILTO")),
         "provider_failures": provider_failures,
         "outcomes": outcomes,
-        "policy_note": "Only provider-reported open/public locations are resolved. The toolkit does not bypass paywalls, logins, CAPTCHAs, or access controls.",
+        "policy_note": (
+            "Only provider-reported open/public locations are resolved. The toolkit does not "
+            "bypass paywalls, logins, CAPTCHAs, or access controls."
+        ),
     }
     _write_json(state_root / "data" / "fulltext_resolution.json", report)
     append_activity(
@@ -449,11 +600,16 @@ def acquire_open_access_full_text(
         category="source_verification",
         actor="toolkit",
         inputs={"action": "oa_fulltext_acquisition", "paper_ids": selected_ids, "download": download},
-        outputs=[".litreview/data/fulltext_resolution.json", ".litreview/data/papers.jsonl", ".litreview/cache/fulltext/"],
+        outputs=[
+            ".litreview/data/fulltext_resolution.json",
+            ".litreview/data/papers.jsonl",
+            ".litreview/cache/fulltext/",
+        ],
         source_ids=selected_ids,
         notes=(
-            f"Resolved OA availability for {len(selected_ids)} priority papers and downloaded {downloaded} PDFs. "
-            "Only open/public locations reported by configured scholarly services were used."
+            f"Resolved OA availability for {len(selected_ids)} priority papers and downloaded "
+            f"{downloaded} PDFs. Only open/public locations reported by configured scholarly "
+            "services were used."
         ),
     )
     return report
