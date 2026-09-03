@@ -54,25 +54,45 @@ def next_oa_batch(root: Path, *, max_papers: int = 100) -> list[str]:
     return [str(row["paper_id"]) for row in candidates[:max_papers] if row.get("paper_id")]
 
 
-def missing_fulltext_queue(root: Path) -> list[dict[str, object]]:
-    """Return retained papers that still need a researcher-supplied full text.
+def _best_lawful_location(row: dict[str, object]) -> dict[str, object]:
+    best = row.get("oa_best_location")
+    if isinstance(best, dict):
+        return best
+    candidates = row.get("oa_candidates")
+    if not isinstance(candidates, list):
+        return {}
+    for candidate in candidates:
+        if isinstance(candidate, dict) and (candidate.get("landing_url") or candidate.get("pdf_url")):
+            return candidate
+    return {}
 
-    The queue intentionally contains only bibliographic/provenance information and
-    lawful resolution results. It never attempts paywall, login, CAPTCHA, or other
-    access-control bypasses.
+
+def missing_fulltext_queue(root: Path) -> list[dict[str, object]]:
+    """Return retained papers that need researcher/library full-text action.
+
+    A paper enters this queue only after the lawful OA resolver has attempted it.
+    Papers that have not yet been checked remain in ``next_oa_batch`` instead, so
+    the researcher is not asked to intervene before the toolkit has tried its
+    automatic lawful sources.
     """
     root = root.expanduser().resolve()
     records = _load_jsonl(root / PROJECT_DIR / "data" / "papers.jsonl")
     queue: list[dict[str, object]] = []
     for row in _eligible(records):
-        if _has_local(row):
+        if _has_local(row) or not row.get("oa_resolved_at"):
             continue
-        status = str(row.get("oa_resolution_status") or "not_attempted")
-        if status in {"downloaded", "already_local"}:
-            continue
-        candidates = row.get("oa_candidates")
-        candidate_list = candidates if isinstance(candidates, list) else []
-        best = candidate_list[0] if candidate_list and isinstance(candidate_list[0], dict) else {}
+
+        status = str(row.get("oa_resolution_status") or "unresolved_or_closed")
+        best = _best_lawful_location(row)
+        landing_url = best.get("landing_url") if best else None
+        pdf_url = best.get("pdf_url") if best else None
+        if landing_url:
+            action = "Open the lawful landing page or institutional library and add a legally obtained PDF to papers/full_text."
+        elif pdf_url:
+            action = "Open the lawful OA PDF URL and add the PDF to papers/full_text if automatic download failed."
+        else:
+            action = "Use institutional/library, author-provided, or another legally obtained copy and add it to papers/full_text."
+
         queue.append(
             {
                 "paper_id": row.get("paper_id"),
@@ -83,13 +103,11 @@ def missing_fulltext_queue(root: Path) -> list[dict[str, object]]:
                 "triage_priority": row.get("triage_priority"),
                 "oa_resolution_status": status,
                 "oa_resolved_at": row.get("oa_resolved_at"),
-                "best_landing_url": best.get("landing_url") if isinstance(best, dict) else None,
-                "best_provider": best.get("provider") if isinstance(best, dict) else None,
-                "researcher_action": (
-                    "Open the lawful landing page or institutional library and add a PDF to papers/full_text."
-                    if best
-                    else "Provide a legally obtained PDF in papers/full_text when available."
-                ),
+                "best_landing_url": landing_url,
+                "best_pdf_url": pdf_url,
+                "best_provider": best.get("provider") if best else None,
+                "download_error": row.get("oa_download_error"),
+                "researcher_action": action,
             }
         )
     return queue
