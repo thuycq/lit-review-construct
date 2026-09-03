@@ -89,6 +89,39 @@ function Remove-GeminiContextBlock {
     }
 }
 
+function Remove-RecordedLrcLauncher {
+    param(
+        [string]$RecordedLauncher,
+        [string]$RuntimeBin
+    )
+
+    $candidates = @()
+    if ($RecordedLauncher) {
+        $candidates += $RecordedLauncher
+    }
+    if ($RuntimeBin) {
+        $candidates += (Join-Path $RuntimeBin "lrc.exe")
+    }
+
+    $removed = $false
+    foreach ($candidate in @($candidates | Select-Object -Unique)) {
+        if (-not $candidate -or -not (Test-Path $candidate)) { continue }
+        $leaf = [System.IO.Path]::GetFileName([string]$candidate).ToLowerInvariant()
+        if ($leaf -notin @("lrc.exe", "lrc.cmd", "lrc.ps1", "lrc")) {
+            Write-Warning "Skipped unexpected recorded launcher path: $candidate"
+            continue
+        }
+        try {
+            Remove-Item -Force ([string]$candidate)
+            Write-Host "Removed stale LRC launcher: $candidate"
+            $removed = $true
+        } catch {
+            Write-Warning "Could not remove stale LRC launcher '$candidate': $($_.Exception.Message)"
+        }
+    }
+    return $removed
+}
+
 $Manifest = $null
 if (Test-Path $ManifestPath) {
     try {
@@ -151,6 +184,8 @@ Remove-GeminiContextBlock -Path $GeminiContextFile
 Write-Host "Removing LRC runtime..."
 $PackageName = [string](Get-ManifestProperty -Manifest $Manifest -Name "package_name" -Default $DefaultPackageName)
 $Uv = [string](Get-ManifestProperty -Manifest $Manifest -Name "uv" -Default "")
+$RecordedLrcLauncher = [string](Get-ManifestProperty -Manifest $Manifest -Name "resolved_lrc" -Default "")
+$RuntimeBin = [string](Get-ManifestProperty -Manifest $Manifest -Name "runtime_bin" -Default "")
 if (-not $Uv -or -not (Test-Path $Uv)) {
     $uvCommand = Get-Command uv -ErrorAction SilentlyContinue
     if ($uvCommand) {
@@ -159,6 +194,9 @@ if (-not $Uv -or -not (Test-Path $Uv)) {
         $defaultUv = Join-Path $HOME ".local\bin\uv.exe"
         if (Test-Path $defaultUv) { $Uv = $defaultUv }
     }
+}
+if (-not $RuntimeBin -and $Uv -and (Test-Path $Uv)) {
+    $RuntimeBin = Split-Path -Parent $Uv
 }
 
 if ($Uv -and (Test-Path $Uv)) {
@@ -169,6 +207,12 @@ if ($Uv -and (Test-Path $Uv)) {
 } else {
     Write-Warning "uv was not found, so the LRC runtime could not be removed automatically."
 }
+
+# uv can occasionally remove the package environment but leave its generated
+# launcher behind. Remove only the LRC launcher recorded by our own manifest
+# (plus the canonical lrc.exe in that recorded runtime bin), never arbitrary
+# executables from the shared uv bin directory.
+$LauncherRemoved = Remove-RecordedLrcLauncher -RecordedLauncher $RecordedLrcLauncher -RuntimeBin $RuntimeBin
 
 if ($FullCleanup) {
     if (Test-Path $InstallRoot) {
@@ -183,6 +227,7 @@ if ($FullCleanup) {
         full_cleanup = $false
         package_name = $PackageName
         source_repository = $RepoRoot
+        stale_launcher_removed = [bool]$LauncherRemoved
         research_workspaces_removed = $false
         uv_removed = $false
         python_removed = $false
