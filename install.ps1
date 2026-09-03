@@ -2,26 +2,42 @@ $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
 $RepoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-$ExpectedVersion = "0.1.0b2"
+$ExpectedVersion = "0.1.0b3"
+$PackageName = "lit-review-construct"
+$InstallRoot = Join-Path $env:LOCALAPPDATA "LiteratureReviewConstruct"
+New-Item -ItemType Directory -Force -Path $InstallRoot | Out-Null
+
 Write-Host "Literature Review Construct installer"
 Write-Host "Repository: $RepoRoot"
 Write-Host "Runtime target: $ExpectedVersion"
 
 function Resolve-Uv {
     $cmd = Get-Command uv -ErrorAction SilentlyContinue
-    if ($cmd) { return $cmd.Source }
+    if ($cmd) { return [string]$cmd.Source }
 
     $defaultUv = Join-Path $HOME ".local\bin\uv.exe"
-    if (Test-Path $defaultUv) { return $defaultUv }
+    if (Test-Path $defaultUv) { return [string]$defaultUv }
 
     Write-Host "uv not found. Installing uv..."
-    powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+    # Keep installer progress visible without allowing its stdout to become the
+    # return value of Resolve-Uv. PowerShell functions otherwise return every
+    # object written to the success stream, which can corrupt $Uv.
+    powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://astral.sh/uv/install.ps1 | iex" | Out-Host
 
     $cmd = Get-Command uv -ErrorAction SilentlyContinue
-    if ($cmd) { return $cmd.Source }
-    if (Test-Path $defaultUv) { return $defaultUv }
+    if ($cmd) { return [string]$cmd.Source }
+    if (Test-Path $defaultUv) { return [string]$defaultUv }
 
     throw "uv installation completed but uv.exe could not be located."
+}
+
+function Ensure-SessionPath {
+    param([Parameter(Mandatory = $true)][string]$Directory)
+    if (-not (Test-Path $Directory)) { return }
+    $parts = @($env:Path -split ';' | Where-Object { $_ })
+    if ($parts -notcontains $Directory) {
+        $env:Path = "$Directory;$env:Path"
+    }
 }
 
 function Sync-Skills {
@@ -66,6 +82,11 @@ function Add-GeminiContext {
 }
 
 $Uv = Resolve-Uv
+if (-not (Test-Path $Uv)) {
+    throw "Resolved uv path does not exist: $Uv"
+}
+$UvBin = Split-Path -Parent $Uv
+Ensure-SessionPath -Directory $UvBin
 Write-Host "Using uv: $Uv"
 
 & $Uv python install 3.12
@@ -73,6 +94,54 @@ if ($LASTEXITCODE -ne 0) { throw "Python 3.12 installation failed." }
 
 & $Uv tool install --force --reinstall --python 3.12 $RepoRoot
 if ($LASTEXITCODE -ne 0) { throw "Literature Review Construct runtime installation failed." }
+
+# Ask uv for the actual executable directory used for installed tools. This
+# avoids resolving an older lrc launcher elsewhere on PATH.
+$RuntimeBin = $null
+try {
+    $candidateToolBin = (& $Uv tool dir --bin 2>$null | Out-String).Trim()
+    if ($candidateToolBin -and (Test-Path $candidateToolBin)) {
+        $RuntimeBin = $candidateToolBin
+    }
+} catch {
+    $RuntimeBin = $null
+}
+if (-not $RuntimeBin) {
+    $RuntimeBin = $UvBin
+}
+Ensure-SessionPath -Directory $RuntimeBin
+
+$ResolvedPath = Join-Path $RuntimeBin "lrc.exe"
+if (-not (Test-Path $ResolvedPath)) {
+    # Compatibility fallback for installations where uv and tool launchers share
+    # the uv executable directory but `uv tool dir --bin` is unavailable.
+    $fallbackLrc = Join-Path $UvBin "lrc.exe"
+    if (Test-Path $fallbackLrc) {
+        $ResolvedPath = $fallbackLrc
+        $RuntimeBin = $UvBin
+    } else {
+        throw "LRC runtime installation completed, but the newly installed lrc.exe could not be located."
+    }
+}
+
+$InstalledVersion = $null
+try {
+    $InstalledVersion = (& $ResolvedPath version).Trim()
+} catch {
+    throw "The newly installed LRC launcher could not start: $ResolvedPath"
+}
+if ($InstalledVersion -ne $ExpectedVersion) {
+    throw "Installed LRC runtime version '$InstalledVersion' does not match expected version '$ExpectedVersion'."
+}
+
+# Sanity-check a feature introduced/validated in this beta. If this fails, the
+# installer must not report success because Codex would otherwise resolve an
+# incomplete or stale runtime later.
+& $ResolvedPath fulltext --help *> $null
+if ($LASTEXITCODE -ne 0) {
+    throw "Installed LRC runtime is incomplete: the 'fulltext' command is unavailable."
+}
+Write-Host "Verified lrc runtime and fulltext command: $ResolvedPath"
 
 $CodexHome = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $HOME ".codex" }
 $SkillRoots = @(
@@ -85,56 +154,60 @@ $SkillRoots = @(
     (Join-Path $HOME ".copilot\skills"),
     (Join-Path $HOME ".cline\skills")
 )
-Sync-Skills -Source (Join-Path $RepoRoot "skills") -Targets $SkillRoots
+$SkillSource = Join-Path $RepoRoot "skills"
+$SkillNames = @()
+if (Test-Path $SkillSource) {
+    $SkillNames = @(Get-ChildItem -Path $SkillSource -Directory | ForEach-Object { $_.Name })
+}
+Sync-Skills -Source $SkillSource -Targets $SkillRoots
 
 $OpenCodeCommands = Join-Path $HOME ".config\opencode\commands"
 New-Item -ItemType Directory -Force -Path $OpenCodeCommands | Out-Null
 $CanonicalOpenCodeCommands = Join-Path $RepoRoot "commands\opencode"
+$OpenCodeCommandFiles = @()
 if (Test-Path $CanonicalOpenCodeCommands) {
     Get-ChildItem -Path $CanonicalOpenCodeCommands -Filter "*.md" -File | ForEach-Object {
-        Copy-Item -Force $_.FullName (Join-Path $OpenCodeCommands $_.Name)
+        $target = Join-Path $OpenCodeCommands $_.Name
+        Copy-Item -Force $_.FullName $target
+        $OpenCodeCommandFiles += $target
     }
 }
 
 $ClaudeCommands = Join-Path $HOME ".claude\commands"
 New-Item -ItemType Directory -Force -Path $ClaudeCommands | Out-Null
 $ClaudeLr = Join-Path $RepoRoot "commands\claude\lr.md"
+$ClaudeCommandFiles = @()
 if (Test-Path $ClaudeLr) {
-    Copy-Item -Force $ClaudeLr (Join-Path $ClaudeCommands "lr.md")
+    $target = Join-Path $ClaudeCommands "lr.md"
+    Copy-Item -Force $ClaudeLr $target
+    $ClaudeCommandFiles += $target
 }
 
 $GeminiRoot = Join-Path $HOME ".gemini"
 $GeminiCommands = Join-Path $GeminiRoot "commands"
 New-Item -ItemType Directory -Force -Path $GeminiCommands | Out-Null
+$GeminiCommandFiles = @()
 foreach ($name in @("lr.toml", "lr-status.toml")) {
     $source = Join-Path $RepoRoot "commands\gemini\$name"
     if (Test-Path $source) {
-        Copy-Item -Force $source (Join-Path $GeminiCommands $name)
+        $target = Join-Path $GeminiCommands $name
+        Copy-Item -Force $source $target
+        $GeminiCommandFiles += $target
     }
 }
-Add-GeminiContext -Template (Join-Path $RepoRoot "commands\gemini\global-context.md") -Target (Join-Path $GeminiRoot "GEMINI.md")
-
-$InstallRoot = Join-Path $env:LOCALAPPDATA "LiteratureReviewConstruct"
-New-Item -ItemType Directory -Force -Path $InstallRoot | Out-Null
-
-$ResolvedLrc = Get-Command lrc -ErrorAction SilentlyContinue
-$ResolvedPath = $null
-$InstalledVersion = $null
-if ($ResolvedLrc) {
-    $ResolvedPath = $ResolvedLrc.Source
-    try {
-        $InstalledVersion = (& $ResolvedPath version).Trim()
-    } catch {
-        $InstalledVersion = $null
-    }
-}
+$GeminiContextFile = Join-Path $GeminiRoot "GEMINI.md"
+Add-GeminiContext -Template (Join-Path $RepoRoot "commands\gemini\global-context.md") -Target $GeminiContextFile
 
 $Manifest = @{
+    status = "installed"
     installed_at = (Get-Date).ToUniversalTime().ToString("o")
     source_repository = $RepoRoot
+    package_name = $PackageName
     expected_version = $ExpectedVersion
     installed_version = $InstalledVersion
     resolved_lrc = $ResolvedPath
+    uv = $Uv
+    runtime_bin = $RuntimeBin
     python = "3.12"
     hosts = @(
         "codex",
@@ -147,11 +220,17 @@ $Manifest = @{
         "gemini-cli"
     )
     skill_roots = $SkillRoots
+    skill_names = $SkillNames
     opencode_commands = $OpenCodeCommands
+    opencode_command_files = $OpenCodeCommandFiles
     claude_commands = $ClaudeCommands
+    claude_command_files = $ClaudeCommandFiles
     gemini_commands = $GeminiCommands
+    gemini_command_files = $GeminiCommandFiles
+    gemini_context_file = $GeminiContextFile
+    research_workspaces_managed = $false
 }
-$Manifest | ConvertTo-Json -Depth 4 | Set-Content -Encoding UTF8 (Join-Path $InstallRoot "install-manifest.json")
+$Manifest | ConvertTo-Json -Depth 5 | Set-Content -Encoding UTF8 (Join-Path $InstallRoot "install-manifest.json")
 
 Write-Host ""
 Write-Host "Installed Literature Review Construct beta core and multi-host adapters."
@@ -164,16 +243,11 @@ Write-Host "  - Windsurf"
 Write-Host "  - GitHub Copilot"
 Write-Host "  - Cline"
 Write-Host "  - Gemini CLI"
-if ($ResolvedPath) {
-    Write-Host "Resolved lrc: $ResolvedPath"
-    Write-Host "Installed runtime: $InstalledVersion"
-    if ($InstalledVersion -ne $ExpectedVersion) {
-        Write-Warning "The current shell resolves an unexpected lrc version. Close and reopen the terminal before testing."
-    }
-} else {
-    Write-Warning "lrc is not visible in this shell yet. Close and reopen the terminal before testing."
-}
+Write-Host "Resolved lrc: $ResolvedPath"
+Write-Host "Installed runtime: $InstalledVersion"
+Write-Host "Verified command: fulltext"
 Write-Host ""
+Write-Host "Existing research folders and .litreview state are preserved during repair/reinstall."
 Write-Host "Open a dedicated research folder in your preferred AI host and say:"
-Write-Host "  Start a new Literature Review Construct project in this folder."
+Write-Host "  Start or continue the Literature Review Construct project in this folder."
 Write-Host "OpenCode, Claude Code, and Gemini CLI also have an /lr shortcut."
