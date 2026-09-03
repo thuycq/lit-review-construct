@@ -185,8 +185,9 @@ def test_queue_uses_resolved_location_label_not_pdf_claim(tmp_path: Path) -> Non
     _write(tmp_path, rows)
     queue = missing_fulltext_queue(tmp_path)
     assert queue[0]["best_location_url"] == "https://example.org/repository-record"
-    assert "resolved oa location" not in queue[0]["researcher_action"].lower()
-    assert "resolved oa location" not in str(queue[0].get("best_landing_url", "")).lower()
+    assert queue[0]["best_landing_url"] is None
+    assert "best_pdf_url" not in queue[0]
+    assert "actual pdf" in queue[0]["researcher_action"].lower()
 
 
 def test_finalize_report_writes_missing_fulltext_queue_file(tmp_path: Path) -> None:
