@@ -6,7 +6,7 @@ from pathlib import Path
 import typer
 
 from .app_cli import fulltext_app
-from .oa_coverage import finalize_oa_report, next_oa_batch
+from .oa_coverage import finalize_oa_report, missing_fulltext_queue, next_oa_batch
 from .oa_fulltext import acquire_open_access_full_text
 from .paper_library import sync_acquired_oa_library
 
@@ -70,10 +70,39 @@ def fulltext_acquire(
     typer.echo(f"Priority papers checked this batch: {result['selected_papers']}")
     typer.echo(f"OA PDFs downloaded this batch: {result['downloaded']}")
     typer.echo(f"Remaining retained records to resolve: {result.get('remaining_resolution_candidates', 0)}")
+    typer.echo(f"Missing full text requiring researcher action: {result.get('missing_fulltext_records', 0)}")
     typer.echo(f"Coverage complete: {result.get('coverage_complete', False)}")
     typer.echo("Researcher paper library: papers/full_text (DOI-based filenames where available)")
+    typer.echo("Missing-full-text queue: .litreview/data/missing_fulltext.json")
     if not result.get("unpaywall_enabled"):
         typer.echo("Note: set UNPAYWALL_EMAIL to enable DOI fallback through Unpaywall.")
     if result.get("provider_failures"):
         typer.echo(f"Provider warnings recorded: {len(result['provider_failures'])}")
     typer.echo("Policy: no paywall, login, CAPTCHA, or access-control bypassing.")
+
+
+@fulltext_app.command("queue")
+def fulltext_queue(
+    path: Path = typer.Argument(Path("."), help="Research workspace folder."),
+    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
+) -> None:
+    """Show retained papers that still need full text from the researcher/library."""
+    try:
+        queue = missing_fulltext_queue(path)
+    except (FileNotFoundError, ValueError, OSError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(json.dumps({"count": len(queue), "papers": queue}, ensure_ascii=False))
+        return
+    typer.echo(f"Missing full-text papers: {len(queue)}")
+    if not queue:
+        typer.echo("No retained papers currently require researcher-supplied full text.")
+        return
+    for item in queue:
+        doi = f" | DOI: {item['doi']}" if item.get("doi") else ""
+        typer.echo(f"- {item.get('paper_id')}: {item.get('title')} ({item.get('year') or 'n.d.'}){doi}")
+        if item.get("best_landing_url"):
+            typer.echo(f"  Lawful landing page: {item['best_landing_url']}")
+        typer.echo(f"  Action: {item['researcher_action']}")
+    typer.echo("Policy: use open-access, institutional/library, author-provided, or researcher-supplied copies only.")
