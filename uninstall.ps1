@@ -48,7 +48,7 @@ if (-not $Yes) {
 
 function Get-ManifestProperty {
     param(
-        [Parameter(Mandatory = $true)]$Manifest,
+        $Manifest,
         [Parameter(Mandatory = $true)][string]$Name,
         $Default = $null
     )
