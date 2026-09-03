@@ -9,19 +9,31 @@ Write-Host "Runtime target: $ExpectedVersion"
 
 function Resolve-Uv {
     $cmd = Get-Command uv -ErrorAction SilentlyContinue
-    if ($cmd) { return $cmd.Source }
+    if ($cmd) { return [string]$cmd.Source }
 
     $defaultUv = Join-Path $HOME ".local\bin\uv.exe"
-    if (Test-Path $defaultUv) { return $defaultUv }
+    if (Test-Path $defaultUv) { return [string]$defaultUv }
 
     Write-Host "uv not found. Installing uv..."
-    powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+    # Keep installer progress visible without allowing its stdout to become the
+    # return value of Resolve-Uv. PowerShell functions otherwise return every
+    # object written to the success stream, which can corrupt $Uv.
+    powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://astral.sh/uv/install.ps1 | iex" | Out-Host
 
     $cmd = Get-Command uv -ErrorAction SilentlyContinue
-    if ($cmd) { return $cmd.Source }
-    if (Test-Path $defaultUv) { return $defaultUv }
+    if ($cmd) { return [string]$cmd.Source }
+    if (Test-Path $defaultUv) { return [string]$defaultUv }
 
     throw "uv installation completed but uv.exe could not be located."
+}
+
+function Ensure-SessionPath {
+    param([Parameter(Mandatory = $true)][string]$Directory)
+    if (-not (Test-Path $Directory)) { return }
+    $parts = @($env:Path -split ';' | Where-Object { $_ })
+    if ($parts -notcontains $Directory) {
+        $env:Path = "$Directory;$env:Path"
+    }
 }
 
 function Sync-Skills {
@@ -66,6 +78,11 @@ function Add-GeminiContext {
 }
 
 $Uv = Resolve-Uv
+if (-not (Test-Path $Uv)) {
+    throw "Resolved uv path does not exist: $Uv"
+}
+$UvBin = Split-Path -Parent $Uv
+Ensure-SessionPath -Directory $UvBin
 Write-Host "Using uv: $Uv"
 
 & $Uv python install 3.12
@@ -73,6 +90,11 @@ if ($LASTEXITCODE -ne 0) { throw "Python 3.12 installation failed." }
 
 & $Uv tool install --force --reinstall --python 3.12 $RepoRoot
 if ($LASTEXITCODE -ne 0) { throw "Literature Review Construct runtime installation failed." }
+
+# uv-installed tools normally share the uv bin directory. Make that directory
+# available immediately so repair/reinstall can verify lrc without requiring a
+# terminal restart first.
+Ensure-SessionPath -Directory $UvBin
 
 $CodexHome = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $HOME ".codex" }
 $SkillRoots = @(
@@ -121,7 +143,14 @@ $ResolvedLrc = Get-Command lrc -ErrorAction SilentlyContinue
 $ResolvedPath = $null
 $InstalledVersion = $null
 if ($ResolvedLrc) {
-    $ResolvedPath = $ResolvedLrc.Source
+    $ResolvedPath = [string]$ResolvedLrc.Source
+} else {
+    $candidateLrc = Join-Path $UvBin "lrc.exe"
+    if (Test-Path $candidateLrc) {
+        $ResolvedPath = $candidateLrc
+    }
+}
+if ($ResolvedPath) {
     try {
         $InstalledVersion = (& $ResolvedPath version).Trim()
     } catch {
@@ -135,6 +164,8 @@ $Manifest = @{
     expected_version = $ExpectedVersion
     installed_version = $InstalledVersion
     resolved_lrc = $ResolvedPath
+    uv = $Uv
+    runtime_bin = $UvBin
     python = "3.12"
     hosts = @(
         "codex",
@@ -168,12 +199,13 @@ if ($ResolvedPath) {
     Write-Host "Resolved lrc: $ResolvedPath"
     Write-Host "Installed runtime: $InstalledVersion"
     if ($InstalledVersion -ne $ExpectedVersion) {
-        Write-Warning "The current shell resolves an unexpected lrc version. Close and reopen the terminal before testing."
+        Write-Warning "The installed lrc runtime did not report the expected version. Re-run install.bat to repair it."
     }
 } else {
-    Write-Warning "lrc is not visible in this shell yet. Close and reopen the terminal before testing."
+    Write-Warning "lrc could not be verified after installation. Re-run install.bat to repair the runtime."
 }
 Write-Host ""
+Write-Host "Existing research folders and .litreview state are preserved during repair/reinstall."
 Write-Host "Open a dedicated research folder in your preferred AI host and say:"
-Write-Host "  Start a new Literature Review Construct project in this folder."
+Write-Host "  Start or continue the Literature Review Construct project in this folder."
 Write-Host "OpenCode, Claude Code, and Gemini CLI also have an /lr shortcut."
