@@ -2,7 +2,7 @@ $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
 $RepoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-$ExpectedVersion = "0.1.0b2"
+$ExpectedVersion = "0.1.0b3"
 $PackageName = "lit-review-construct"
 $InstallRoot = Join-Path $env:LOCALAPPDATA "LiteratureReviewConstruct"
 New-Item -ItemType Directory -Force -Path $InstallRoot | Out-Null
@@ -95,10 +95,53 @@ if ($LASTEXITCODE -ne 0) { throw "Python 3.12 installation failed." }
 & $Uv tool install --force --reinstall --python 3.12 $RepoRoot
 if ($LASTEXITCODE -ne 0) { throw "Literature Review Construct runtime installation failed." }
 
-# uv-installed tools normally share the uv bin directory. Make that directory
-# available immediately so repair/reinstall can verify lrc without requiring a
-# terminal restart first.
-Ensure-SessionPath -Directory $UvBin
+# Ask uv for the actual executable directory used for installed tools. This
+# avoids resolving an older lrc launcher elsewhere on PATH.
+$RuntimeBin = $null
+try {
+    $candidateToolBin = (& $Uv tool dir --bin 2>$null | Out-String).Trim()
+    if ($candidateToolBin -and (Test-Path $candidateToolBin)) {
+        $RuntimeBin = $candidateToolBin
+    }
+} catch {
+    $RuntimeBin = $null
+}
+if (-not $RuntimeBin) {
+    $RuntimeBin = $UvBin
+}
+Ensure-SessionPath -Directory $RuntimeBin
+
+$ResolvedPath = Join-Path $RuntimeBin "lrc.exe"
+if (-not (Test-Path $ResolvedPath)) {
+    # Compatibility fallback for installations where uv and tool launchers share
+    # the uv executable directory but `uv tool dir --bin` is unavailable.
+    $fallbackLrc = Join-Path $UvBin "lrc.exe"
+    if (Test-Path $fallbackLrc) {
+        $ResolvedPath = $fallbackLrc
+        $RuntimeBin = $UvBin
+    } else {
+        throw "LRC runtime installation completed, but the newly installed lrc.exe could not be located."
+    }
+}
+
+$InstalledVersion = $null
+try {
+    $InstalledVersion = (& $ResolvedPath version).Trim()
+} catch {
+    throw "The newly installed LRC launcher could not start: $ResolvedPath"
+}
+if ($InstalledVersion -ne $ExpectedVersion) {
+    throw "Installed LRC runtime version '$InstalledVersion' does not match expected version '$ExpectedVersion'."
+}
+
+# Sanity-check a feature introduced/validated in this beta. If this fails, the
+# installer must not report success because Codex would otherwise resolve an
+# incomplete or stale runtime later.
+& $ResolvedPath fulltext --help *> $null
+if ($LASTEXITCODE -ne 0) {
+    throw "Installed LRC runtime is incomplete: the 'fulltext' command is unavailable."
+}
+Write-Host "Verified lrc runtime and fulltext command: $ResolvedPath"
 
 $CodexHome = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $HOME ".codex" }
 $SkillRoots = @(
@@ -155,25 +198,6 @@ foreach ($name in @("lr.toml", "lr-status.toml")) {
 $GeminiContextFile = Join-Path $GeminiRoot "GEMINI.md"
 Add-GeminiContext -Template (Join-Path $RepoRoot "commands\gemini\global-context.md") -Target $GeminiContextFile
 
-$ResolvedLrc = Get-Command lrc -ErrorAction SilentlyContinue
-$ResolvedPath = $null
-$InstalledVersion = $null
-if ($ResolvedLrc) {
-    $ResolvedPath = [string]$ResolvedLrc.Source
-} else {
-    $candidateLrc = Join-Path $UvBin "lrc.exe"
-    if (Test-Path $candidateLrc) {
-        $ResolvedPath = $candidateLrc
-    }
-}
-if ($ResolvedPath) {
-    try {
-        $InstalledVersion = (& $ResolvedPath version).Trim()
-    } catch {
-        $InstalledVersion = $null
-    }
-}
-
 $Manifest = @{
     status = "installed"
     installed_at = (Get-Date).ToUniversalTime().ToString("o")
@@ -183,7 +207,7 @@ $Manifest = @{
     installed_version = $InstalledVersion
     resolved_lrc = $ResolvedPath
     uv = $Uv
-    runtime_bin = $UvBin
+    runtime_bin = $RuntimeBin
     python = "3.12"
     hosts = @(
         "codex",
@@ -219,15 +243,9 @@ Write-Host "  - Windsurf"
 Write-Host "  - GitHub Copilot"
 Write-Host "  - Cline"
 Write-Host "  - Gemini CLI"
-if ($ResolvedPath) {
-    Write-Host "Resolved lrc: $ResolvedPath"
-    Write-Host "Installed runtime: $InstalledVersion"
-    if ($InstalledVersion -ne $ExpectedVersion) {
-        Write-Warning "The installed lrc runtime did not report the expected version. Re-run install.bat to repair it."
-    }
-} else {
-    Write-Warning "lrc could not be verified after installation. Re-run install.bat to repair the runtime."
-}
+Write-Host "Resolved lrc: $ResolvedPath"
+Write-Host "Installed runtime: $InstalledVersion"
+Write-Host "Verified command: fulltext"
 Write-Host ""
 Write-Host "Existing research folders and .litreview state are preserved during repair/reinstall."
 Write-Host "Open a dedicated research folder in your preferred AI host and say:"
