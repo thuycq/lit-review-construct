@@ -6,7 +6,12 @@ from pathlib import Path
 import typer
 
 from .app_cli import fulltext_app
-from .oa_coverage import finalize_oa_report, missing_fulltext_queue, next_oa_batch
+from .oa_coverage import (
+    finalize_oa_report,
+    missing_fulltext_queue,
+    next_oa_batch,
+    oa_coverage_status,
+)
 from .oa_fulltext import acquire_open_access_full_text
 from .paper_library import sync_acquired_oa_library
 
@@ -89,20 +94,42 @@ def fulltext_queue(
     """Show retained papers that still need full text from the researcher/library."""
     try:
         queue = missing_fulltext_queue(path)
+        coverage = oa_coverage_status(path)
     except (FileNotFoundError, ValueError, OSError) as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=1) from exc
     if json_output:
-        typer.echo(json.dumps({"count": len(queue), "papers": queue}, ensure_ascii=False))
+        typer.echo(
+            json.dumps(
+                {
+                    "count": len(queue),
+                    "remaining_resolution_candidates": coverage.get("remaining_resolution_candidates", 0),
+                    "papers": queue,
+                },
+                ensure_ascii=False,
+            )
+        )
         return
-    typer.echo(f"Missing full-text papers: {len(queue)}")
+    typer.echo(f"Missing full-text papers requiring researcher action: {len(queue)}")
+    typer.echo(
+        f"Papers still awaiting automatic OA resolution: {coverage.get('remaining_resolution_candidates', 0)}"
+    )
     if not queue:
-        typer.echo("No retained papers currently require researcher-supplied full text.")
+        if coverage.get("remaining_resolution_candidates", 0):
+            typer.echo("No researcher action is needed yet; run 'lrc fulltext acquire .' to continue automatic resolution.")
+        else:
+            typer.echo("No retained papers currently require researcher-supplied full text.")
         return
     for item in queue:
         doi = f" | DOI: {item['doi']}" if item.get("doi") else ""
         typer.echo(f"- {item.get('paper_id')}: {item.get('title')} ({item.get('year') or 'n.d.'}){doi}")
         if item.get("best_landing_url"):
             typer.echo(f"  Lawful landing page: {item['best_landing_url']}")
+        elif item.get("best_pdf_url"):
+            typer.echo(f"  Lawful OA PDF: {item['best_pdf_url']}")
+        if item.get("best_provider"):
+            typer.echo(f"  Resolver: {item['best_provider']} | Status: {item.get('oa_resolution_status')}")
+        if item.get("download_error"):
+            typer.echo(f"  Automatic download note: {item['download_error']}")
         typer.echo(f"  Action: {item['researcher_action']}")
     typer.echo("Policy: use open-access, institutional/library, author-provided, or researcher-supplied copies only.")
