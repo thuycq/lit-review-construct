@@ -3,6 +3,10 @@ Set-StrictMode -Version Latest
 
 $RepoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ExpectedVersion = "0.1.0b2"
+$PackageName = "lit-review-construct"
+$InstallRoot = Join-Path $env:LOCALAPPDATA "LiteratureReviewConstruct"
+New-Item -ItemType Directory -Force -Path $InstallRoot | Out-Null
+
 Write-Host "Literature Review Construct installer"
 Write-Host "Repository: $RepoRoot"
 Write-Host "Runtime target: $ExpectedVersion"
@@ -107,37 +111,49 @@ $SkillRoots = @(
     (Join-Path $HOME ".copilot\skills"),
     (Join-Path $HOME ".cline\skills")
 )
-Sync-Skills -Source (Join-Path $RepoRoot "skills") -Targets $SkillRoots
+$SkillSource = Join-Path $RepoRoot "skills"
+$SkillNames = @()
+if (Test-Path $SkillSource) {
+    $SkillNames = @(Get-ChildItem -Path $SkillSource -Directory | ForEach-Object { $_.Name })
+}
+Sync-Skills -Source $SkillSource -Targets $SkillRoots
 
 $OpenCodeCommands = Join-Path $HOME ".config\opencode\commands"
 New-Item -ItemType Directory -Force -Path $OpenCodeCommands | Out-Null
 $CanonicalOpenCodeCommands = Join-Path $RepoRoot "commands\opencode"
+$OpenCodeCommandFiles = @()
 if (Test-Path $CanonicalOpenCodeCommands) {
     Get-ChildItem -Path $CanonicalOpenCodeCommands -Filter "*.md" -File | ForEach-Object {
-        Copy-Item -Force $_.FullName (Join-Path $OpenCodeCommands $_.Name)
+        $target = Join-Path $OpenCodeCommands $_.Name
+        Copy-Item -Force $_.FullName $target
+        $OpenCodeCommandFiles += $target
     }
 }
 
 $ClaudeCommands = Join-Path $HOME ".claude\commands"
 New-Item -ItemType Directory -Force -Path $ClaudeCommands | Out-Null
 $ClaudeLr = Join-Path $RepoRoot "commands\claude\lr.md"
+$ClaudeCommandFiles = @()
 if (Test-Path $ClaudeLr) {
-    Copy-Item -Force $ClaudeLr (Join-Path $ClaudeCommands "lr.md")
+    $target = Join-Path $ClaudeCommands "lr.md"
+    Copy-Item -Force $ClaudeLr $target
+    $ClaudeCommandFiles += $target
 }
 
 $GeminiRoot = Join-Path $HOME ".gemini"
 $GeminiCommands = Join-Path $GeminiRoot "commands"
 New-Item -ItemType Directory -Force -Path $GeminiCommands | Out-Null
+$GeminiCommandFiles = @()
 foreach ($name in @("lr.toml", "lr-status.toml")) {
     $source = Join-Path $RepoRoot "commands\gemini\$name"
     if (Test-Path $source) {
-        Copy-Item -Force $source (Join-Path $GeminiCommands $name)
+        $target = Join-Path $GeminiCommands $name
+        Copy-Item -Force $source $target
+        $GeminiCommandFiles += $target
     }
 }
-Add-GeminiContext -Template (Join-Path $RepoRoot "commands\gemini\global-context.md") -Target (Join-Path $GeminiRoot "GEMINI.md")
-
-$InstallRoot = Join-Path $env:LOCALAPPDATA "LiteratureReviewConstruct"
-New-Item -ItemType Directory -Force -Path $InstallRoot | Out-Null
+$GeminiContextFile = Join-Path $GeminiRoot "GEMINI.md"
+Add-GeminiContext -Template (Join-Path $RepoRoot "commands\gemini\global-context.md") -Target $GeminiContextFile
 
 $ResolvedLrc = Get-Command lrc -ErrorAction SilentlyContinue
 $ResolvedPath = $null
@@ -159,8 +175,10 @@ if ($ResolvedPath) {
 }
 
 $Manifest = @{
+    status = "installed"
     installed_at = (Get-Date).ToUniversalTime().ToString("o")
     source_repository = $RepoRoot
+    package_name = $PackageName
     expected_version = $ExpectedVersion
     installed_version = $InstalledVersion
     resolved_lrc = $ResolvedPath
@@ -178,11 +196,17 @@ $Manifest = @{
         "gemini-cli"
     )
     skill_roots = $SkillRoots
+    skill_names = $SkillNames
     opencode_commands = $OpenCodeCommands
+    opencode_command_files = $OpenCodeCommandFiles
     claude_commands = $ClaudeCommands
+    claude_command_files = $ClaudeCommandFiles
     gemini_commands = $GeminiCommands
+    gemini_command_files = $GeminiCommandFiles
+    gemini_context_file = $GeminiContextFile
+    research_workspaces_managed = $false
 }
-$Manifest | ConvertTo-Json -Depth 4 | Set-Content -Encoding UTF8 (Join-Path $InstallRoot "install-manifest.json")
+$Manifest | ConvertTo-Json -Depth 5 | Set-Content -Encoding UTF8 (Join-Path $InstallRoot "install-manifest.json")
 
 Write-Host ""
 Write-Host "Installed Literature Review Construct beta core and multi-host adapters."
