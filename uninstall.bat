@@ -9,5 +9,5 @@ if not "%EXIT_CODE%"=="0" (
   pause
   exit /b %EXIT_CODE%
 )
-echo Lit Review Construct uninstall completed successfully.
 pause
+exit /b 0
