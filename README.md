@@ -1,427 +1,118 @@
 # Literature Review Construct
 
-**Build the literature behind your study — without handing authorship to AI.**
+**A practical toolkit to help researchers build a stronger literature review with AI — while keeping the final academic judgment and writing with the researcher.**
 
-**Current beta:** `0.1.0b3`  
-**Primary orientation:** narrative literature reviews  
-**Design:** local-first, researcher-controlled, Windows-first
+**Current beta:** `0.1.0b3`
 
-Literature Review Construct (LRC) is a local toolkit for researchers who want AI to help with **literature discovery, synthesis, evidence organization, research-landscape construction, and review planning** while keeping the final scholarly judgment and writing with the researcher.
+Literature Review Construct (LRC) is designed for lecturers, researchers, graduate students, and research teams who want help with the most time-consuming parts of a literature review: finding papers, organizing the literature, understanding the main research streams, identifying possible research directions, and preparing a clear structure for writing.
 
-LRC is not a one-click paper writer. It is a structured research workflow that helps turn a broad topic and a large literature set into a **defensible, source-linked foundation for a literature review**.
+You do **not** need to know Python or programming to use LRC.
 
----
-
-## Why LRC exists
-
-A useful literature review requires more than finding papers. Researchers must decide:
-
-- what literature actually belongs in scope;
-- which papers are central rather than merely similar;
-- what the main research streams and disagreements are;
-- which findings are supported by full text and which remain provisional;
-- what research direction is genuinely defensible;
-- how the evidence should be organized into an argument.
-
-LRC automates or assists the repetitive technical work around those decisions, but deliberately leaves the important academic decisions with the researcher.
-
-> **The final literature review remains researcher-authored.**
+The easiest way to use it is with **Codex** or **OpenCode** on your computer.
 
 ---
 
-## What LRC can do
+## What can LRC help you do?
 
 LRC can help you:
 
-- define and persist a Research Intent;
-- search scholarly literature broadly before narrowing;
-- ingest researcher-provided seed papers;
-- deduplicate and prioritize literature;
-- follow citations and references from important papers;
-- identify major research streams, debates, methods, and recurring findings;
-- build a Research Landscape and source-linked Evidence Map;
-- suggest and compare possible Research Directions;
-- build a Literature Review Blueprint;
-- create bounded Working Draft fragments for researcher revision;
-- collect lawful open-access full text when available;
-- maintain a researcher-facing paper library;
-- export working references, including EndNote-compatible output;
-- prepare a Word Researcher Writing Pack;
-- optionally prepare an AI-use statement from activities actually recorded in the project.
+- define the topic and scope of your literature review;
+- search for relevant academic papers;
+- use papers you already have as starting material;
+- remove duplicates and prioritize more useful studies;
+- follow references and citations from important papers;
+- collect open-access full text when it is legally available;
+- identify major research streams, theories, methods, findings, and disagreements;
+- build a **Research Landscape** showing how the literature is organized;
+- suggest possible **Research Directions** for your study;
+- build a **Literature Review Blueprint** to guide your writing;
+- prepare short draft fragments for you to review and rewrite;
+- organize papers and references in your research folder;
+- export references for EndNote;
+- prepare a Word **Researcher Writing Pack**;
+- optionally prepare an AI-use statement based on what AI actually did in the project.
+
+LRC is mainly designed for **narrative literature reviews** in the current beta.
 
 ### What LRC does not do
 
-LRC is not designed to:
+LRC is not intended to write a complete submission-ready literature review for you.
 
-- write a submission-ready literature review on the researcher's behalf;
-- make final scholarly judgments automatically;
-- guarantee exhaustive coverage of all published literature;
-- treat an abstract as equivalent to checked full text;
-- make unsupported claims that a research gap is globally novel;
-- bypass paywalls, publisher logins, CAPTCHAs, or access controls;
-- provide PRISMA/systematic-review completeness claims in the current beta.
+It also does not automatically claim that a research gap is completely new, and it does not bypass publisher paywalls, logins, CAPTCHAs, or access restrictions.
+
+The researcher remains responsible for checking important sources, making the final academic decisions, and writing or approving the final literature review.
 
 ---
 
-# Quick start
+# The easiest way to get started
 
-## 1. Download the toolkit once
+For most users, the whole setup is simply:
 
-Clone the repository:
+1. Install **Codex** or **OpenCode**.
+2. Download LRC.
+3. Install LRC once on your computer.
+4. Create a separate folder for your research project.
+5. Open that research folder in Codex or OpenCode.
+6. Tell the AI what literature review you want to build.
 
-```powershell
-git clone https://github.com/thuycq/literature-review-construct.git
-cd literature-review-construct
-```
-
-Or download the repository ZIP and extract it to a permanent toolkit folder.
-
-## 2. Install on Windows
-
-Double-click:
-
-```text
-install.bat
-```
-
-or run it from PowerShell.
-
-The installer provisions the LRC runtime and host integrations. You do **not** need to install Python manually.
-
-Verify installation:
-
-```powershell
-lrc version
-```
-
-Expected current beta:
-
-```text
-0.1.0b3
-```
-
-## 3. Create a separate research folder
-
-Do **not** use the LRC source-code repository itself as your research workspace.
-
-For example:
-
-```text
-C:\Research\Working Capital\
-```
-
-or:
-
-```text
-C:\Research\Bank Efficiency\
-```
-
-One folder = one research project.
-
-## 4. Open the research folder in your AI host
-
-The current beta is best tested on **Windows with Codex Desktop and OpenCode**. LRC also includes adapters for several Agent-Skills-compatible hosts.
-
-A universal start prompt is:
-
-> **Start a new Literature Review Construct project in this folder. Help me define the Research Intent before you begin searching.**
-
-To resume later:
-
-> **Continue this Literature Review Construct project from its saved state. Do not repeat completed work. Continue technical steps automatically and stop only when you need a research decision from me.**
-
-For OpenCode and compatible command adapters, `/lr` may also be available.
-
-See [`QUICK_START.md`](QUICK_START.md) for Fast Start templates and more detailed usage.
+You do not need to copy LRC into every research project.
 
 ---
 
-# Toolkit folder and research folder are different things
+# Step 1 — Install an AI app
 
-LRC is installed once. Research projects live elsewhere.
+You only need **one** AI app. For the current beta, we recommend starting with **Codex** or **OpenCode**.
 
-```text
-literature-review-construct/      ← toolkit source code
-│
-├── src/
-├── skills/
-├── commands/
-├── tests/
-├── install.bat
-└── ...
+## Option A — Codex
 
-C:\Research\Project A\           ← research workspace
-├── AGENTS.md
-├── papers/
-├── references/
-├── outputs/
-└── .litreview/
+Codex is available on Windows and macOS through OpenAI's desktop experience.
 
-C:\Research\Project B\           ← another research workspace
-└── ...
-```
+Official information:
 
-The toolkit can be repaired, updated, or reinstalled without resetting a research workspace. The saved `.litreview` state inside each research folder is authoritative for that project.
+- https://openai.com/codex/
+- https://chatgpt.com/download/
 
----
+### To install
 
-# Two layers: local tools + AI reasoning
+1. Open the official download page above.
+2. Download the desktop app for your operating system.
+3. Install it normally.
+4. Sign in with your ChatGPT/OpenAI account.
 
-LRC intentionally separates work that does **not** need an AI model from work that does.
+If you already use Codex on your computer, you can skip this step.
 
-```text
-Local LRC runtime / PowerShell
-    ↓
-search operations, full-text retrieval, file handling,
-state persistence, deduplication, exports, packaging
-    ↓
-research workspace (.litreview + papers + outputs)
-    ↓
-Codex / OpenCode / other supported host
-    ↓
-research reasoning, synthesis, landscape construction,
-direction comparison, blueprinting, researcher dialogue
-```
+### Why choose Codex?
 
-This means long-running mechanical operations do not need to consume AI-model usage.
-
-For example, lawful full-text retrieval can be run directly in **PowerShell**:
-
-```powershell
-lrc fulltext acquire .
-```
-
-and the remaining researcher-action queue can be inspected with:
-
-```powershell
-lrc fulltext queue .
-```
-
-The AI host can then resume the project from the updated local state.
-
-For large acquisition batches, running the command directly in PowerShell is generally preferable to keeping a long AI-host turn open.
+Codex is the simplest option if you already have a ChatGPT account and want to work with your research folder through a graphical desktop app.
 
 ---
 
-# Lawful full-text acquisition
+## Option B — OpenCode
 
-LRC can resolve and download open/public full text reported by scholarly providers. The current resolver uses sources including OpenAlex and Semantic Scholar, with optional Unpaywall fallback.
+OpenCode is an open-source AI agent available as a desktop app, terminal app, and IDE extension.
 
-To enable Unpaywall for the current PowerShell session:
+Official information and downloads:
 
-```powershell
-$env:UNPAYWALL_EMAIL="your-email@example.com"
-```
+- https://opencode.ai/docs/
+- https://dev.opencode.ai/download
 
-Then run:
+### To install the desktop version
 
-```powershell
-lrc fulltext acquire .
-```
+1. Open the OpenCode download page.
+2. Download the Windows or macOS version.
+3. Install and open OpenCode.
+4. Connect the AI provider/model you want to use.
 
-LRC distinguishes between:
+Inside OpenCode, the `/connect` command can be used to configure a provider.
 
-- successfully acquired local full text;
-- lawful OA locations whose automatic download failed;
-- temporary provider/network failures that should be retried automatically;
-- papers that genuinely require researcher/library action.
-
-The researcher-action queue is persisted at:
-
-```text
-.litreview/data/missing_fulltext.json
-```
-
-LRC never attempts to bypass access controls. If automatic lawful retrieval is not available, the researcher may supply a copy obtained through an institutional library, author-provided source, or another lawful route.
+OpenCode supports different AI providers, so it can be useful if you want more flexibility in model choice or cost.
 
 ---
 
-# Coverage is a diagnostic, not a target
+## Other supported apps
 
-LRC reports how much retained literature has been resolved, but **100% full-text coverage is not required**.
+LRC also includes support for several other AI environments, including:
 
-For a narrative review, a smaller set of high-value papers with good coverage of the important research streams may be more useful than collecting every technically retrievable paper.
-
-The researcher decides when the evidence base is sufficiently strong for the purpose of the review.
-
-LRC therefore treats:
-
-```text
-Coverage complete: True/False
-```
-
-as information about the corpus — not as a requirement that must be satisfied before the project can move forward.
-
----
-
-# Core workflow
-
-A typical LRC project moves through the following stages.
-
-### 1. Research Intent
-
-Clarify the topic, period, language, context, inclusion/exclusion boundaries, and any seed literature.
-
-### 2. Discovery
-
-Search broadly, deduplicate, triage, refine, and follow promising citation paths.
-
-The researcher decides when the literature is sufficiently developed; routine technical refinement does not require repeated approval.
-
-### 3. Research Landscape
-
-Organize the retained literature into major streams, important papers, theories, methods, agreements, disagreements, and recent developments.
-
-### 4. Evidence Map
-
-Keep substantive claims linked to their source basis and make uncertainty visible.
-
-### 5. Research Direction
-
-Compare possible directions by contribution, evidence strength, feasibility, and risk. The toolkit can recommend; the researcher chooses.
-
-### 6. Literature Review Blueprint
-
-Build the structure and argument flow of the future literature review, including evidence anchors, contradictions, weaknesses, and unresolved decisions.
-
-### 7. Working Draft fragments
-
-Generate bounded, editable prose fragments for researcher review rather than a seamless submission-ready literature review.
-
-### 8. Researcher handoff
-
-Prepare the useful working materials: papers, references, source-verification tasks, EndNote export, and the Researcher Writing Pack.
-
----
-
-# Human checkpoints
-
-LRC tries not to interrupt the researcher for routine technical decisions.
-
-The main human checkpoints are:
-
-1. confirming the Research Intent when needed;
-2. deciding whether to focus/change/finish discovery;
-3. selecting the Research Direction;
-4. accepting the Literature Review Blueprint;
-5. verifying important sources and writing/approving the final literature review.
-
-Deduplication, batching, OA resolution, file organization, evidence refresh, formatting, and packaging should normally proceed without unnecessary confirmation.
-
----
-
-# Evidence and authorship safeguards
-
-LRC keeps several distinctions explicit.
-
-### Full text available ≠ full text checked
-
-A PDF existing in the paper library does not automatically mean the AI has used it to verify a claim.
-
-### AI checked ≠ researcher verified
-
-Researcher verification is only recorded after explicit human verification.
-
-### Abstract evidence ≠ full-text evidence
-
-Claims based only on metadata or abstracts should remain appropriately provisional.
-
-### Corpus gap ≠ global novelty
-
-A gap observed in the current corpus is a candidate research opportunity, not automatic proof that no relevant study exists anywhere else.
-
-These boundaries are central to the design of the toolkit.
-
----
-
-# Research workspace structure
-
-A typical project contains:
-
-```text
-Research_Project/
-├── AGENTS.md
-├── papers/
-│   ├── full_text/
-│   ├── abstract_only/
-│   └── user_uploads/
-├── references/
-│   ├── references_used.enw
-│   ├── references_used.csv
-│   └── references_manifest.md
-├── outputs/
-│   ├── 01_research_intent.md
-│   ├── 03_research_landscape.md
-│   ├── 04_evidence_map.md
-│   ├── 05_research_direction.md
-│   ├── 06_literature_review_blueprint.md
-│   ├── 06b_literature_review_working_draft.md
-│   └── LitReview_Researcher_Writing_Pack.docx
-└── .litreview/
-```
-
-Researchers normally interact with:
-
-```text
-papers/
-references/
-outputs/
-```
-
-`.litreview/` stores internal project state and normally does not need manual editing.
-
----
-
-# Existing papers
-
-If you already have relevant PDFs, place them in:
-
-```text
-papers/user_uploads/
-```
-
-Then tell the AI host:
-
-> **I added papers to `papers/user_uploads`. Scan them as seed literature, preserve the original files, and do not assume they are all relevant.**
-
-Researcher-provided papers are treated as seed material, not automatically as core evidence.
-
----
-
-# Installation, repair, and uninstall
-
-## Repair/update on Windows
-
-After pulling a newer toolkit version, run:
-
-```text
-install.bat
-```
-
-The installer repairs/reinstalls the LRC runtime while preserving research workspaces and their `.litreview` state.
-
-## Uninstall on Windows
-
-Run:
-
-```text
-uninstall.bat
-```
-
-The uninstall workflow can remove the LRC runtime and host integrations without deleting research workspaces, PDFs, outputs, `uv`, or shared Python installations.
-
-A fuller LRC-local cleanup option is also available.
-
----
-
-# Supported hosts
-
-The toolkit core is host-independent. Host adapters help compatible AI environments discover the same canonical workflow.
-
-Current adapters include:
-
-- **Codex** — primary beta target;
-- **OpenCode** — primary beta target;
 - Claude Code;
 - Cursor;
 - Windsurf;
@@ -429,39 +120,404 @@ Current adapters include:
 - GitHub Copilot;
 - Cline.
 
-Support quality may vary across hosts and models. The current beta has received the most hands-on testing in the Windows + Codex/OpenCode workflow.
+However, **Codex and OpenCode are the recommended starting points for beta testing** because they have received the most hands-on testing in our current workflow.
 
 ---
 
-# Current beta limitations
+# Step 2 — Install Literature Review Construct
 
-- Narrative-review workflow only; no PRISMA/systematic-review completeness claims.
-- Scholarly APIs may rate-limit, fail temporarily, or return incomplete metadata.
-- Publisher/provider OA links are not always direct downloadable PDFs.
-- Some full text will still require lawful researcher/library access.
-- Bibliographic metadata can require researcher correction.
-- Researcher source verification remains necessary.
-- Output quality varies by AI host and model.
-- The Blueprint and Working Draft are construction artifacts, not submission-ready prose.
+You install LRC **once on your computer**.
+
+You do not need to install Python manually.
+
+## Windows
+
+### Simple method: Download ZIP
+
+1. On this GitHub page, choose **Code → Download ZIP**.
+2. Extract the ZIP to a permanent folder, for example:
+
+```text
+C:\Tools\literature-review-construct\
+```
+
+3. Open that folder.
+4. Double-click:
+
+```text
+install.bat
+```
+
+5. Wait until the installation finishes.
+6. Close and reopen Codex/OpenCode if it was already running.
+
+That is all most Windows users need to do.
+
+### If Windows shows a security prompt
+
+Because this is a small research toolkit rather than a signed commercial application, Windows may ask whether you want to run the script. Only continue if you downloaded the toolkit from this repository.
 
 ---
 
-# Project philosophy
+## macOS
 
-LRC is built around a simple division of labor:
+### Simple method: Download ZIP
 
-**Use software for repetitive research operations.**  
-**Use AI for synthesis and reasoning.**  
-**Use the researcher for scholarly judgment and authorship.**
+1. On this GitHub page, choose **Code → Download ZIP**.
+2. Extract the ZIP to a permanent folder, for example:
 
-The goal is not to maximize the number of papers collected or the amount of AI-generated prose. The goal is to help a researcher reach a **better-supported, more transparent, and more manageable understanding of the literature**.
+```text
+~/Tools/literature-review-construct/
+```
+
+3. Open **Terminal**.
+4. Move into the extracted folder.
+5. Run:
+
+```bash
+bash install.sh
+```
+
+6. Wait until installation finishes.
+7. Close and reopen Codex/OpenCode if it was already running.
+
+You do not need to install Python manually; the installer prepares the required runtime.
 
 ---
 
-## Documentation
+# Step 3 — Create a folder for your research
 
-- [`QUICK_START.md`](QUICK_START.md) — Fast Start prompts, maintenance, and practical usage
-- [`BETA_READINESS.md`](BETA_READINESS.md) — beta behavior, safeguards, and testing notes
+This is important: **your research folder should be separate from the LRC toolkit folder**.
+
+For example:
+
+```text
+Documents\Research\Working Capital\
+```
+
+or:
+
+```text
+Documents\Research\Bank Efficiency\
+```
+
+Think of LRC as an application that is installed once. Each study then gets its own folder.
+
+For example:
+
+```text
+Literature Review Construct
+    installed once on the computer
+
+Research Project A
+Research Project B
+Research Project C
+```
+
+Do not create your research project inside the downloaded LRC source-code folder.
+
+---
+
+# Step 4 — Start your first Literature Review project
+
+Open **your research folder** in Codex or OpenCode.
+
+Then simply type something like:
+
+> **Start a new Literature Review Construct project in this folder. Help me define the Research Intent before you begin searching.**
+
+You can also give the topic immediately:
+
+> **Start a new Literature Review Construct project. My topic is working capital management and firm performance. I want the literature to help me identify a useful research direction.**
+
+LRC will normally need a few basic pieces of information, such as:
+
+- your topic or early research question;
+- the publication period you want to search;
+- the language of the papers;
+- any country, industry, or research context that matters;
+- whether you already have some papers.
+
+You do not need to have a perfect research question before starting. One purpose of LRC is to let the literature help shape the research direction.
+
+---
+
+# If you already have papers
+
+If you already have useful PDF papers, you can use them as seed literature.
+
+Once the LRC project has been created, place your PDFs in:
+
+```text
+papers/user_uploads/
+```
+
+Then tell Codex/OpenCode:
+
+> **I added papers to `papers/user_uploads`. Use them as seed literature, preserve the original files, and do not assume they are all relevant.**
+
+LRC will treat these papers as a starting point rather than automatically assuming every uploaded paper is important.
+
+---
+
+# What happens after you start?
+
+You can mostly work by talking normally with the AI.
+
+A typical project develops through these stages:
+
+### 1. Research Intent
+
+Clarify what literature should be studied.
+
+### 2. Literature Discovery
+
+Search broadly, organize papers, remove duplicates, and identify promising areas.
+
+### 3. Research Landscape
+
+Show the major themes, streams, theories, methods, important papers, agreements, and disagreements in the literature.
+
+### 4. Research Direction
+
+LRC suggests possible directions. You decide which direction is most useful for your study.
+
+### 5. Literature Review Blueprint
+
+LRC prepares the structure and argument flow that can guide your literature review writing.
+
+### 6. Working Draft and Researcher Pack
+
+LRC can prepare short draft fragments, references, papers, source-checking tasks, and a Word Researcher Writing Pack.
+
+The purpose is to give you a strong evidence base and writing structure — not to replace the researcher as the author.
+
+---
+
+# When will LRC ask me to decide something?
+
+LRC tries to avoid interrupting you for routine technical work.
+
+It should mainly stop when your academic judgment is useful, for example when you need to:
+
+- confirm or change the research scope;
+- decide whether the literature search is sufficient;
+- choose among possible Research Directions;
+- accept or revise the Literature Review Blueprint;
+- verify important sources before final writing.
+
+You should not need to approve every search batch, duplicate removal, file operation, or technical step.
+
+---
+
+# Where are my results saved?
+
+Everything stays inside your research folder.
+
+A typical project will gradually contain folders such as:
+
+```text
+papers/
+references/
+outputs/
+```
+
+The most useful folders for researchers are:
+
+### `papers/`
+
+Your paper library, including downloaded full text and papers you supplied yourself.
+
+### `references/`
+
+Working reference files, including EndNote-compatible export where available.
+
+### `outputs/`
+
+Researcher-facing outputs such as the Research Landscape, Evidence Map, Research Direction, Literature Review Blueprint, Working Draft fragments, and Researcher Writing Pack.
+
+There is also a hidden/internal project folder called `.litreview`. You normally do not need to open or edit it.
+
+---
+
+# How do I continue the project another day?
+
+Open the **same research folder** again in Codex/OpenCode and say:
+
+> **Continue this Literature Review Construct project from its saved state. Do not repeat completed work. Continue until you need a research decision from me.**
+
+LRC saves project state locally, so you should not need to start again from the beginning.
+
+You can also move between supported AI hosts while keeping the same research folder, although behavior may vary slightly between hosts during beta testing.
+
+---
+
+# Do I need to collect every possible paper?
+
+No.
+
+LRC may discover hundreds or even thousands of records, but a good narrative literature review does not necessarily need every paper that can technically be found.
+
+The more important questions are:
+
+- Are the important research streams covered?
+- Are the main arguments supported by credible studies?
+- Do you have enough strong full-text evidence for the claims you want to make?
+- Is the literature sufficient for your research purpose?
+
+For many projects, a well-selected set of strong papers is more useful than trying to maximize the number of downloaded PDFs.
+
+The researcher decides when the evidence base is sufficient.
+
+---
+
+# Full-text papers
+
+LRC can automatically look for legally available open-access full text.
+
+If a paper cannot be downloaded automatically, LRC may ask you to obtain it through:
+
+- your university/institutional library;
+- an author-provided copy;
+- another legal source;
+- a PDF you already have.
+
+LRC does not bypass paywalls or publisher access controls.
+
+You do not need to achieve 100% full-text coverage before continuing your literature review.
+
+---
+
+# Updating or reinstalling LRC
+
+Your research projects are stored separately from the toolkit, so updating or repairing LRC should not require you to restart a research project.
+
+## Windows
+
+After downloading/pulling a newer version, run:
+
+```text
+install.bat
+```
+
+again.
+
+To uninstall LRC, run:
+
+```text
+uninstall.bat
+```
+
+The uninstall process is designed not to delete your separate research folders, papers, or outputs.
+
+## macOS
+
+After updating the toolkit folder, run again:
+
+```bash
+bash install.sh
+```
+
+Your existing research folders remain separate.
+
+---
+
+# Optional: for users comfortable with PowerShell or Terminal
+
+**You do not need this section for normal use.**
+
+LRC has a local command-line tool that can perform some mechanical tasks without keeping Codex/OpenCode busy. This can be useful if you are comfortable with PowerShell/Terminal and want to reduce AI-token usage during long operations.
+
+For example, inside a research folder you can run:
+
+```powershell
+lrc fulltext acquire .
+```
+
+to continue lawful open-access full-text retrieval without asking the AI model to wait for the task.
+
+To see papers that still need researcher/library action:
+
+```powershell
+lrc fulltext queue .
+```
+
+If you want to enable Unpaywall as an additional open-access source for the current PowerShell session:
+
+```powershell
+$env:UNPAYWALL_EMAIL="your-email@example.com"
+```
+
+Then run the acquisition command again.
+
+This is optional. A normal user can simply ask Codex/OpenCode to continue the project.
+
+For large or slow full-text batches, direct PowerShell/Terminal use can be more convenient because it avoids keeping a long AI session open and can reduce model usage.
+
+---
+
+# Frequently asked questions
+
+### Do I need to know programming?
+
+No. The normal workflow is conversational.
+
+### Do I need Git?
+
+No. You can download the toolkit as a ZIP file.
+
+### Do I need to install Python?
+
+No. The installer prepares the required runtime.
+
+### Do I need an AI subscription?
+
+You need access to at least one AI host/model supported by the application you choose. Codex uses your OpenAI/ChatGPT setup; OpenCode can connect to different model providers.
+
+### Does LRC write the final literature review for me?
+
+No. It helps construct the evidence base, research landscape, structure, and draft material, but the final review remains researcher-authored.
+
+### Can I use my own papers?
+
+Yes. Put them in `papers/user_uploads` after starting the project.
+
+### Do I need every paper in full text?
+
+No. Full-text quality and coverage of the important literature matter more than reaching an arbitrary number of papers.
+
+### Can I stop and continue later?
+
+Yes. Reopen the same research folder and ask LRC to continue from its saved state.
+
+### Can I use a different AI app later?
+
+The project state is stored locally, so supported hosts can work from the same research folder. Cross-host behavior is still being tested during beta.
+
+---
+
+# Current beta notes
+
+The current beta is focused on narrative literature reviews.
+
+Some scholarly databases may temporarily limit requests, some publisher links may not provide a direct PDF, and some papers will still require library access or manual researcher verification.
+
+Output quality may also vary depending on the AI host and model you use.
+
+For the current beta, the most tested workflow is:
+
+**Windows + Codex/OpenCode**
+
+macOS support is also included and remains part of beta testing.
+
+---
+
+# More detailed documentation
+
+If you want more detailed prompts, maintenance instructions, or testing information:
+
+- [`QUICK_START.md`](QUICK_START.md) — practical start/resume templates and additional usage
+- [`BETA_READINESS.md`](BETA_READINESS.md) — beta behavior and testing notes
 
 ---
 
