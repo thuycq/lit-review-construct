@@ -90,3 +90,28 @@ Continue through broad multi-source discovery. First show me the provisional res
 Fast Start removes repetitive onboarding; it does **not** remove scholarly checkpoints. The agent must still stop when researcher judgment is needed, including decisions about changing/focusing the discovery scope, finishing discovery, selecting a Research Direction, and accepting the Literature Review Blueprint.
 
 The toolkit should also surface contradictions or important scope problems even when the brief is pre-confirmed. A prefilled prompt is permission to move faster, not permission to ignore evidence that challenges the initial idea.
+
+## Windows maintenance and recovery
+
+- Run `install.bat` for a first install or to repair/reinstall the LRC runtime and host integrations. Existing research folders and `.litreview` state are preserved.
+- Run `uninstall.bat` to remove LRC. The menu offers a normal uninstall or a full LRC-local cleanup. Neither option removes research workspaces, PDFs, outputs, `uv`, or shared Python installations.
+- If Codex is opened on an existing LRC workspace after a repair, continue the existing project rather than creating a new brief. The local `.litreview` state remains authoritative.
+
+## Full-text resolution and missing-full-text queue
+
+LRC first tries lawful automatic full-text resolution through the configured open-access sources. Papers that have not yet been checked remain in the automatic resolution pool. Only papers that have already been checked and still lack usable local full text enter the researcher-action queue.
+
+For diagnostics or manual testing:
+
+```powershell
+lrc fulltext acquire .
+lrc fulltext queue .
+```
+
+The queue is also written to:
+
+```text
+.litreview/data/missing_fulltext.json
+```
+
+The queue may surface an open-access PDF URL or a lawful landing page. Otherwise it asks the researcher to supply a legally obtained copy through institutional/library access, an author-provided copy, or another lawful source. LRC does not bypass paywalls, logins, CAPTCHAs, or access controls.
