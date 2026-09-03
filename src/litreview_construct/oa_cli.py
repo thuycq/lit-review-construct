@@ -22,7 +22,10 @@ def fulltext_acquire(
     paper_id: list[str] | None = typer.Option(
         None,
         "--paper-id",
-        help="Priority paper_id; repeatable. Without explicit IDs, continue the retained-literature OA coverage pass.",
+        help=(
+            "Priority paper_id; repeatable. Without explicit IDs, continue the retained-literature "
+            "OA coverage pass, including retryable resolver failures."
+        ),
     ),
     max_papers: int = typer.Option(100, "--max-papers", min=1, max=100),
     resolve_only: bool = typer.Option(
@@ -46,6 +49,8 @@ def fulltext_acquire(
                     "downloaded": 0,
                     "resolved_landing": 0,
                     "unresolved_or_closed": 0,
+                    "retryable_errors": 0,
+                    "provider_error_exhausted": 0,
                     "unpaywall_enabled": False,
                     "provider_failures": [],
                     "outcomes": [],
@@ -63,19 +68,33 @@ def fulltext_acquire(
         library = (
             sync_acquired_oa_library(path)
             if not resolve_only
-            else {"oa_full_text_available": 0, "copied_to_researcher_library": 0, "library": "papers/full_text"}
+            else {
+                "oa_full_text_available": 0,
+                "copied_to_researcher_library": 0,
+                "library": "papers/full_text",
+            }
         )
         result["researcher_library"] = library
     except (FileNotFoundError, ValueError, OSError) as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=1) from exc
+
     if json_output:
         typer.echo(json.dumps(result, ensure_ascii=False))
         return
+
     typer.echo(f"Priority papers checked this batch: {result['selected_papers']}")
     typer.echo(f"OA PDFs downloaded this batch: {result['downloaded']}")
-    typer.echo(f"Remaining retained records to resolve: {result.get('remaining_resolution_candidates', 0)}")
-    typer.echo(f"Missing full text requiring researcher action: {result.get('missing_fulltext_records', 0)}")
+    typer.echo(
+        f"Remaining retained records to resolve: {result.get('remaining_resolution_candidates', 0)}"
+    )
+    if result.get("retryable_resolution_candidates", 0):
+        typer.echo(
+            f"Automatic resolver retries pending: {result.get('retryable_resolution_candidates', 0)}"
+        )
+    typer.echo(
+        f"Missing full text requiring researcher action: {result.get('missing_fulltext_records', 0)}"
+    )
     typer.echo(f"Coverage complete: {result.get('coverage_complete', False)}")
     typer.echo("Researcher paper library: papers/full_text (DOI-based filenames where available)")
     typer.echo("Missing-full-text queue: .litreview/data/missing_fulltext.json")
@@ -98,38 +117,68 @@ def fulltext_queue(
     except (FileNotFoundError, ValueError, OSError) as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=1) from exc
+
     if json_output:
         typer.echo(
             json.dumps(
                 {
                     "count": len(queue),
-                    "remaining_resolution_candidates": coverage.get("remaining_resolution_candidates", 0),
+                    "remaining_resolution_candidates": coverage.get(
+                        "remaining_resolution_candidates", 0
+                    ),
+                    "retryable_resolution_candidates": coverage.get(
+                        "retryable_resolution_candidates", 0
+                    ),
                     "papers": queue,
                 },
                 ensure_ascii=False,
             )
         )
         return
+
     typer.echo(f"Missing full-text papers requiring researcher action: {len(queue)}")
     typer.echo(
-        f"Papers still awaiting automatic OA resolution: {coverage.get('remaining_resolution_candidates', 0)}"
+        f"Papers still awaiting automatic OA resolution: "
+        f"{coverage.get('remaining_resolution_candidates', 0)}"
     )
+    if coverage.get("retryable_resolution_candidates", 0):
+        typer.echo(
+            f"  of which retryable network/provider failures: "
+            f"{coverage.get('retryable_resolution_candidates', 0)}"
+        )
+
     if not queue:
         if coverage.get("remaining_resolution_candidates", 0):
-            typer.echo("No researcher action is needed yet; run 'lrc fulltext acquire .' to continue automatic resolution.")
+            typer.echo(
+                "No researcher action is needed yet; run 'lrc fulltext acquire .' to continue "
+                "automatic resolution."
+            )
         else:
             typer.echo("No retained papers currently require researcher-supplied full text.")
         return
+
     for item in queue:
         doi = f" | DOI: {item['doi']}" if item.get("doi") else ""
-        typer.echo(f"- {item.get('paper_id')}: {item.get('title')} ({item.get('year') or 'n.d.'}){doi}")
+        typer.echo(
+            f"- {item.get('paper_id')}: {item.get('title')} "
+            f"({item.get('year') or 'n.d.'}){doi}"
+        )
         if item.get("best_landing_url"):
             typer.echo(f"  Lawful landing page: {item['best_landing_url']}")
-        elif item.get("best_pdf_url"):
-            typer.echo(f"  Lawful OA PDF: {item['best_pdf_url']}")
+        elif item.get("best_location_url"):
+            typer.echo(f"  Resolved OA location: {item['best_location_url']}")
         if item.get("best_provider"):
-            typer.echo(f"  Resolver: {item['best_provider']} | Status: {item.get('oa_resolution_status')}")
+            typer.echo(
+                f"  Resolver: {item['best_provider']} | Status: {item.get('oa_resolution_status')}"
+            )
+        attempts = item.get("download_attempts")
+        if isinstance(attempts, list) and len(attempts) > 1:
+            typer.echo(f"  Automatic download candidates tried: {len(attempts)}")
         if item.get("download_error"):
             typer.echo(f"  Automatic download note: {item['download_error']}")
         typer.echo(f"  Action: {item['researcher_action']}")
-    typer.echo("Policy: use open-access, institutional/library, author-provided, or researcher-supplied copies only.")
+
+    typer.echo(
+        "Policy: use open-access, institutional/library, author-provided, or "
+        "researcher-supplied copies only."
+    )
