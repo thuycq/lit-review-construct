@@ -45,11 +45,26 @@ def _eligible(records: list[dict[str, object]]) -> list[dict[str, object]]:
     return retained
 
 
+def _legacy_download_retry(row: dict[str, object]) -> bool:
+    """Recognize download failures written by the pre-retry resolver.
+
+    Older builds stored ``oa_download_error`` while leaving the status as
+    ``resolved_pdf`` and did not record candidate-attempt details. Requeue those
+    records once after upgrade so the new multi-candidate fallback can run.
+    """
+    return bool(
+        row.get("oa_download_error")
+        and not row.get("oa_download_attempts")
+        and int(row.get("oa_resolution_attempts") or 0) < MAX_AUTOMATIC_RETRIES
+    )
+
+
 def _retryable(row: dict[str, object]) -> bool:
-    return (
+    transient = (
         str(row.get("oa_resolution_status") or "") == "retryable_error"
         and int(row.get("oa_retry_count") or 0) < MAX_AUTOMATIC_RETRIES
     )
+    return transient or _legacy_download_retry(row)
 
 
 def next_oa_batch(root: Path, *, max_papers: int = 100) -> list[str]:
@@ -79,8 +94,8 @@ def _best_lawful_location(row: dict[str, object]) -> dict[str, object]:
 def missing_fulltext_queue(root: Path) -> list[dict[str, object]]:
     """Return retained papers that need researcher/library full-text action.
 
-    Retryable network/provider failures stay in the automatic-resolution pool and
-    do not enter the researcher-action queue until the retry budget is exhausted.
+    Retryable network/provider failures and legacy download failures stay in the
+    automatic-resolution pool until the retry budget is exhausted.
     """
     root = root.expanduser().resolve()
     records = _load_jsonl(root / PROJECT_DIR / "data" / "papers.jsonl")
