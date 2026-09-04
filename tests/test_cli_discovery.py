@@ -44,7 +44,7 @@ def test_beta_handoff_commands_are_exposed() -> None:
 def test_runtime_reports_beta_version() -> None:
     result = runner.invoke(app, ["version"])
     assert result.exit_code == 0
-    assert "0.1.0b2" in result.stdout
+    assert "0.1.0b3" in result.stdout
 
 
 def _accepted_project(root: Path) -> None:
