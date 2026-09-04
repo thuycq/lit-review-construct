@@ -49,11 +49,13 @@ def _legacy_download_retry(row: dict[str, object]) -> bool:
     """Recognize download failures written by the pre-retry resolver.
 
     Older builds stored ``oa_download_error`` while leaving the status as
-    ``resolved_pdf`` and did not record candidate-attempt details. Requeue those
-    records once after upgrade so the new multi-candidate fallback can run.
+    ``resolved_pdf`` and did not record candidate-attempt details. Requeue only
+    that legacy shape once after upgrade. Newer explicit failure states such as
+    ``resolved_pdf_download_failed`` belong in the researcher/library queue.
     """
     return bool(
-        row.get("oa_download_error")
+        str(row.get("oa_resolution_status") or "") == "resolved_pdf"
+        and row.get("oa_download_error")
         and not row.get("oa_download_attempts")
         and int(row.get("oa_resolution_attempts") or 0) < MAX_AUTOMATIC_RETRIES
     )

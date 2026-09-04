@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, beta-ready, multi-host-macos-beta2]
+    branches: [main, beta-ready, multi-host-macos-beta2, feature/corpus-refinement-macos-beta4]
   pull_request:
 
 jobs:
@@ -29,6 +29,7 @@ jobs:
           uv run lrc version
           uv run lrc --help
           uv run lrc discover --help
+          uv run lrc corpus --help
           uv run lrc fulltext --help
           uv run lrc blueprint --help
           uv run lrc package --help
@@ -42,11 +43,20 @@ jobs:
           if (-not (Test-Path .\commands\opencode\lr.md)) { throw "Missing OpenCode /lr wrapper" }
           if (-not (Test-Path .\commands\claude\lr.md)) { throw "Missing Claude Code /lr wrapper" }
           if (-not (Test-Path .\commands\gemini\lr.toml)) { throw "Missing Gemini CLI /lr wrapper" }
-      - name: Validate macOS installer and adapters
+      - name: Validate and execute macOS installer
         if: runner.os == 'macOS'
         shell: bash
         run: |
           bash -n ./install.sh
+          bash -n ./install.command
+          test -x ./install.sh
+          test -x ./install.command
+          ./install.command
+          test -x "$HOME/.local/bin/lrc"
+          test "$("$HOME/.local/bin/lrc" version)" = "0.1.0b3"
+          "$HOME/.local/bin/lrc" --help >/dev/null
+          "$HOME/.local/bin/lrc" corpus --help >/dev/null
+          test -f "$HOME/Library/Logs/LiteratureReviewConstruct/install.log"
           test -f ./commands/opencode/lr.md
           test -f ./commands/claude/lr.md
           test -f ./commands/gemini/lr.toml

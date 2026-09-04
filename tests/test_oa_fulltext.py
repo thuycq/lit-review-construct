@@ -76,7 +76,7 @@ def test_acquire_priority_oa_pdf_and_preserve_provenance(tmp_path: Path, monkeyp
         (tmp_path / ".litreview" / "data" / "papers.jsonl").read_text(encoding="utf-8").strip()
     )
     assert row["openalex_id"] == "https://openalex.org/W1"
-    assert row["oa_resolution_status"] == "resolved_pdf"
+    assert row["oa_resolution_status"] == "downloaded"
     assert row["full_text_provenance"]["provider"] == "openalex"
     assert row["full_text_provenance"]["license"] == "cc-by"
     assert (tmp_path / row["file_reference"]).is_file()

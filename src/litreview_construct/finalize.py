@@ -8,6 +8,7 @@ from uuid import uuid4
 
 import yaml
 
+from .corpus import selection_ids
 from .project import PROJECT_DIR, _write_json
 from .search_provenance import provider_query_coverage, query_coverage
 
@@ -21,7 +22,11 @@ def _now() -> str:
 def _load_jsonl(path: Path) -> list[dict[str, object]]:
     if not path.exists():
         return []
-    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    return [
+        json.loads(line)
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
 
 
 def _load_project(root: Path) -> tuple[Path, dict[str, object], dict[str, object]]:
@@ -40,25 +45,35 @@ def _load_project(root: Path) -> tuple[Path, dict[str, object], dict[str, object
 def _completed_campaign(root: Path) -> dict[str, object]:
     path = root / PROJECT_DIR / "data" / "discovery_campaign.json"
     if not path.exists():
-        raise ValueError("A discovery campaign is required before final Research Landscape construction.")
+        raise ValueError(
+            "A discovery campaign is required before final Research Landscape construction."
+        )
     campaign = json.loads(path.read_text(encoding="utf-8"))
     if campaign.get("status") != "complete":
         raise ValueError(
-            "Discovery campaign is not complete. The researcher must explicitly finish discovery before final Research Landscape construction."
+            "Discovery campaign is not complete. The researcher must explicitly finish discovery "
+            "before final Research Landscape construction."
         )
     return campaign
 
 
 def _rank(row: dict[str, object], focuses: list[str]) -> tuple[int, int, int, int, int, str]:
+    """Legacy within-packet ordering helper retained for compatibility/tests."""
     label_rank = {"relevant": 0, "background": 1, "adjacent": 2}
     priority_rank = {"core_candidate": 0, "high": 1, "medium": 2, "low": 3}
-    tags = " ".join(str(value).lower() for value in row.get("triage_stream_tags") or []).strip()
+    tags = " ".join(
+        str(value).lower() for value in row.get("triage_stream_tags") or []
+    ).strip()
     focus_hit = 1
     if tags and focuses and any(
         focus.strip() and (focus.lower() in tags or tags in focus.lower()) for focus in focuses
     ):
         focus_hit = 0
-    sources = row.get("discovery_sources") if isinstance(row.get("discovery_sources"), list) else []
+    sources = (
+        row.get("discovery_sources")
+        if isinstance(row.get("discovery_sources"), list)
+        else []
+    )
     return (
         label_rank.get(str(row.get("triage_label")), 9),
         focus_hit,
@@ -102,7 +117,7 @@ def prepare_final_landscape_packet(
     max_papers: int = 80,
     abstract_chars: int = 2200,
 ) -> dict[str, object]:
-    """Prepare the post-discovery Research Landscape from retained triaged literature."""
+    """Prepare the post-discovery Research Landscape from the selected Core Papers."""
     if not 20 <= max_papers <= 150:
         raise ValueError("max_papers must be between 20 and 150.")
     if not 300 <= abstract_chars <= 5000:
@@ -122,15 +137,33 @@ def prepare_final_landscape_packet(
         for row in records
         if row.get("triage_campaign_id") == campaign_id and row.get("triage_label")
     ]
+    # Beta-upgrade compatibility: older classified records may not carry campaign IDs.
+    if not triaged:
+        triaged = [row for row in records if row.get("triage_label")]
     if not triaged:
         raise ValueError("No papers were triaged in the completed discovery campaign.")
     retained = [row for row in triaged if row.get("triage_label") in RETAINED_LABELS]
     if not retained:
         raise ValueError("No relevant/background/adjacent papers remain after triage.")
 
-    focuses = [str(value) for value in campaign.get("selected_focuses") or []]
-    retained.sort(key=lambda row: _rank(row, focuses))
-    selected = retained[:max_papers]
+    try:
+        core_ids = selection_ids(root, "core")
+    except ValueError as exc:
+        raise ValueError(
+            "Core Papers have not been selected. Complete corpus refinement first: "
+            "Retained Papers -> Evidence Candidates -> Core Papers."
+        ) from exc
+
+    retained_by_id = {
+        str(row.get("paper_id")): row for row in retained if row.get("paper_id")
+    }
+    selected = [retained_by_id[paper_id] for paper_id in core_ids if paper_id in retained_by_id]
+    if not selected:
+        raise ValueError(
+            "The saved Core Paper selection does not match the current retained corpus. "
+            "Re-run corpus refinement before building the Research Landscape."
+        )
+    selected = selected[:max_papers]
     selected_ids = {str(row.get("paper_id")) for row in selected if row.get("paper_id")}
 
     untriaged = len(records) - len(triaged)
@@ -155,16 +188,19 @@ def prepare_final_landscape_packet(
     warnings: list[str] = []
     if untriaged:
         warnings.append(
-            f"{untriaged} indexed records were not triaged in the completed campaign; later gap claims should acknowledge incomplete triage coverage."
+            f"{untriaged} indexed records were not triaged in the completed campaign; later gap "
+            "claims should acknowledge incomplete triage coverage."
         )
     if unresolved:
         warnings.append(
-            f"{unresolved} triaged records remain unresolved and are excluded from the current landscape packet until clarified."
+            f"{unresolved} triaged records remain unresolved and are excluded from the current "
+            "landscape packet until clarified."
         )
 
+    focuses = [str(value) for value in campaign.get("selected_focuses") or []]
     packet = {
         "packet_type": "research_landscape",
-        "packet_schema_version": 3,
+        "packet_schema_version": 4,
         "packet_id": str(uuid4()),
         "created_at": _now(),
         "research_intent": project.get("research") or {},
@@ -178,7 +214,9 @@ def prepare_final_landscape_packet(
             "triaged_records": len(triaged),
             "triage_label_counts": dict(sorted(label_counts.items())),
             "retained_records": len(retained),
+            "core_paper_records": len(core_ids),
             "packet_records": len(selected),
+            "corpus_refinement_applied": True,
             "out_of_scope_excluded": out_scope,
             "unresolved_excluded": unresolved,
             "untriaged_records": untriaged,
@@ -191,16 +229,21 @@ def prepare_final_landscape_packet(
         "paper_graph_edges": graph_edges,
         "bibliographic_relation_candidates": relations,
         "analysis_contract": {
-            "purpose": "Construct the current Research Landscape after researcher-finished multi-source discovery and progressive relevance triage.",
+            "purpose": (
+                "Construct the current Research Landscape from the researcher-approved Core Paper "
+                "corpus after multi-source discovery, progressive triage, and explicit corpus "
+                "refinement."
+            ),
             "required": [
                 "identify a small set of anchor papers with explicit rationale",
-                "organize retained literature into meaningful research streams",
+                "organize Core Papers into meaningful research streams while retaining corpus-boundary context",
                 "surface debates, contradictory positions, methodological clusters, and recent developments",
                 "use discovery coverage and graph context when assessing importance",
                 "preserve paper_id references for traceability",
                 "distinguish abstract-supported observations from AI synthesis/inference",
                 "carry discovery warnings forward when coverage remains incomplete",
                 "preserve query/provider retrieval provenance for auditability",
+                "remember that Core Paper selection is prioritization, not proof that excluded retained papers are unimportant",
             ],
             "prohibited": [
                 "reintroducing out-of-scope papers as substantive landscape evidence",
@@ -243,6 +286,7 @@ def prepare_final_landscape_packet(
         "indexed_records": len(records),
         "triaged_records": len(triaged),
         "retained_records": len(retained),
+        "core_paper_records": len(core_ids),
         "packet_records": len(selected),
         "warnings": warnings,
     }

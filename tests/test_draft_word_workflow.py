@@ -210,11 +210,11 @@ def _workflow_fixture(root: Path, *, with_evidence: bool, with_working_draft: bo
         )
 
 
-def test_workflow_resolves_fulltext_before_first_evidence_map(tmp_path: Path) -> None:
+def test_workflow_does_not_force_fulltext_before_first_evidence_map(tmp_path: Path) -> None:
     _workflow_fixture(tmp_path, with_evidence=False, with_working_draft=False)
     result = project_next_step(tmp_path)
-    assert result["next_action"] == "resolve_priority_full_text"
-    assert result["skill"] == "litreview-fulltext"
+    assert result["next_action"] == "construct_evidence_map"
+    assert result["skill"] == "litreview-map"
 
 
 def test_workflow_builds_working_draft_before_handoff(tmp_path: Path) -> None:

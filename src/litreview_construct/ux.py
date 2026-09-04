@@ -14,8 +14,14 @@ def suggested_user_message(result: Mapping[str, object]) -> str:
 
     if action == "researcher_decision_required":
         if bool(result.get("discovery_saturated")) or result.get("recommended_option") == "finish":
-            return "Finish discovery and proceed to the Research Landscape if the current focus is sufficient, or show me what would materially change if I broadened it."
-        return "Show me the discovery choices in researcher-friendly language, recommend the most defensible option, and let me decide."
+            return (
+                "Finish discovery and proceed if the current focus is sufficient, or show me what "
+                "would materially change if I broadened it."
+            )
+        return (
+            "Show me the discovery choices in researcher-friendly language, recommend the most "
+            "defensible option, and let me decide."
+        )
 
     suggestions = {
         "complete_research_intent": "Help me complete the Research Intent using what I have already provided.",
@@ -30,9 +36,17 @@ def suggested_user_message(result: Mapping[str, object]) -> str:
         "continue_triage": "Continue priority triage of the current corpus without broadening the search.",
         "prepare_narrowing_review": "Rebuild the narrowing map from the evidence filtered so far and continue automatically if no researcher decision is needed.",
         "refine": "Refine the current corpus using priority triage and citation chaining, then reassess saturation before asking me to decide.",
-        "prepare_final_landscape": "Build the Research Landscape from the retained literature.",
-        "construct_current_research_landscape": "Build the Research Landscape from the retained literature.",
-        "resolve_priority_full_text": "Resolve lawful open-access full text across the priority working literature and continue in batches until the planned coverage pass is complete.",
+        "retained_corpus_checkpoint": "Show me the retained-paper count and full-text coverage, then let me choose between local acquisition now or narrowing to Evidence Candidates first.",
+        "acquire_retained_locally": "Run the local full-text acquisition pass for the retained papers and continue automatically when it finishes.",
+        "rank_evidence_candidates": "Rank the retained papers into a smaller, coverage-aware Evidence Candidate corpus and show me the result.",
+        "evidence_candidate_checkpoint": "Show me the Evidence Candidate count and full-text coverage, then let me choose between local acquisition now or narrowing to Core Papers first.",
+        "acquire_evidence_candidates_locally": "Run the local full-text acquisition pass for the Evidence Candidates and continue automatically when it finishes.",
+        "rank_core_papers": "Rank the Evidence Candidates into the Core Paper set for deep evidence work and show me the result.",
+        "core_paper_checkpoint": "Show me the Core Paper count and full-text coverage, then let me choose whether to run local acquisition before evidence work or continue with current coverage.",
+        "acquire_core_papers_locally": "Run the local full-text acquisition pass for the Core Papers and continue automatically when it finishes.",
+        "prepare_final_landscape": "Build the Research Landscape from the refined Core Paper corpus.",
+        "construct_current_research_landscape": "Build the Research Landscape from the refined Core Paper corpus.",
+        "resolve_priority_full_text": "Resolve lawful open-access full text for the selected priority corpus and continue in local batches.",
         "refresh_evidence_after_fulltext": "Refresh affected Evidence Map items against newly available full text and continue.",
         "construct_evidence_map": "Construct the Evidence Map using the strongest source basis currently available.",
         "propose_research_directions": "Propose candidate Research Directions from the Landscape and Evidence Map, then stop for my choice.",
