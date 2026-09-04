@@ -61,6 +61,14 @@ These labels mean different things:
 
 The ranking is not a simple citation leaderboard. LRC considers research relevance, triage priority/confidence, evidence potential, bibliographic/source quality, recency when appropriate, capped citation/anchor value, selected-focus alignment, and coverage of the different research streams.
 
+### How does LRC narrow the corpus?
+
+LRC does not remove papers simply because they have fewer citations, and it does not arbitrarily keep a fixed number of papers. At the Retained and Evidence Candidate stages, LRC uses an explainable title/abstract/metadata ranking that considers relevance to the Research Intent, triage priority and confidence, evidence potential visible in the abstract, bibliographic and source-provenance information, a capped citation/anchor signal, recency, alignment with the selected research focus, and representation across identified research streams.
+
+The selector first protects coverage across meaningful research streams, then fills the remaining places using the overall ranking. Papers that are not promoted to the next tier are **not deleted**: they remain indexed in the project and can be revisited, downloaded, or promoted later.
+
+This narrowing step should be interpreted as **prioritization**, not as a full-text quality assessment. At this stage LRC has not yet established journal prestige, methodological rigor, causal credibility, risk of bias, or study validity from full text. Those judgments belong to later evidence work.
+
 ### A download choice at every narrowing checkpoint
 
 At each corpus level, LRC shows the researcher the current number of papers and full-text coverage, then offers a choice.
@@ -74,6 +82,8 @@ For Core Papers you can either:
 
 - **Acquire all Core Papers locally before evidence work**; or
 - continue with the full text already available and keep missing papers as explicit verification tasks.
+
+These choices have different trade-offs. **Acquire now** gives broader immediate full-text coverage, but it may download many papers that are later deprioritized. **Refine first** reduces acquisition and reading workload, but it accepts a metadata/title/abstract-based prioritization step before full text is available. LRC should explain this difference and recommend an option based on the current corpus size, full-text coverage, evidence needs, and workload while leaving the final decision with the researcher.
 
 The important point is that full-text acquisition is a **local runtime operation**. The Python runtime performs the batch work; Codex/OpenCode does not need to spend a separate AI interaction searching and downloading every paper.
 
