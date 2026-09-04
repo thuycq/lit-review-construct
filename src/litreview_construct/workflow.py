@@ -130,21 +130,26 @@ def project_next_step(root: Path) -> dict[str, object]:
         discovery = discovery_next_step(root)
         return {**discovery, "stage": "literature_discovery", "skill": "litreview-discover"}
 
-    # Post-triage corpus refinement is a required bridge between retained records and deep
-    # evidence work. The researcher decides at each tier whether to acquire the whole current
-    # corpus locally or continue narrowing first. Once a choice is made, ranking/acquisition is
-    # technical and may proceed automatically.
-    refinement = refinement_next_step(root)
-    if refinement.get("next_action") != "proceed_to_landscape":
-        return {
-            **refinement,
-            "stage": "literature_discovery",
-            "skill": str(refinement.get("skill") or "litreview-corpus"),
-        }
-
     landscape_status = _stage(state, "literature_discovery")
     landscape_file = root / PROJECT_DIR / "data" / "landscape.json"
-    if not landscape_file.exists() or landscape_status in {"needs_refresh", "in_progress"}:
+    corpus_state_file = root / PROJECT_DIR / "data" / "corpus_refinement.json"
+    landscape_needs_build = (
+        not landscape_file.exists() or landscape_status in {"needs_refresh", "in_progress"}
+    )
+
+    # Post-triage corpus refinement is the required bridge for new/rebuilt landscapes. Existing
+    # beta projects that already have a current landscape are grandfathered until that landscape
+    # needs rebuilding, so an upgrade does not erase or strand accepted downstream work.
+    if landscape_needs_build or corpus_state_file.exists():
+        refinement = refinement_next_step(root)
+        if refinement.get("next_action") != "proceed_to_landscape":
+            return {
+                **refinement,
+                "stage": "literature_discovery",
+                "skill": str(refinement.get("skill") or "litreview-corpus"),
+            }
+
+    if landscape_needs_build:
         return {
             "next_action": "construct_current_research_landscape",
             "stage": "literature_discovery",
@@ -196,9 +201,9 @@ def project_next_step(root: Path) -> dict[str, object]:
             "skill": "litreview-map",
             "human_checkpoint_required": False,
             "reason": (
-                "A current Research Landscape and Core Paper corpus are available. Construct the "
-                "source-disciplined Evidence Map using full text where available and preserving "
-                "abstract-only limitations where it is not."
+                "A current Research Landscape and refined priority corpus are available. Construct "
+                "the source-disciplined Evidence Map using full text where available and "
+                "preserving abstract-only limitations where it is not."
             ),
             "commands": ["lrc evidence prepare . --json"],
         }
