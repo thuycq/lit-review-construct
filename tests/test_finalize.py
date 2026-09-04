@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 
+from litreview_construct.corpus import rank_corpus, record_decision
 from litreview_construct.finalize import prepare_final_landscape_packet
 from litreview_construct.intent import accept_intent, set_intent
 from litreview_construct.project import init_project
@@ -87,7 +88,9 @@ def _setup(root: Path) -> None:
     )
 
 
-def test_final_landscape_requires_researcher_finished_campaign(tmp_path: Path) -> None:
+def test_final_landscape_requires_researcher_finished_campaign_and_core_selection(
+    tmp_path: Path,
+) -> None:
     _setup(tmp_path)
     with pytest.raises(ValueError, match="not complete"):
         prepare_final_landscape_packet(tmp_path, max_papers=20)
@@ -96,6 +99,15 @@ def test_final_landscape_requires_researcher_finished_campaign(tmp_path: Path) -
     campaign = json.loads(campaign_file.read_text(encoding="utf-8"))
     campaign["status"] = "complete"
     campaign_file.write_text(json.dumps(campaign), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="Core Papers have not been selected"):
+        prepare_final_landscape_packet(tmp_path, max_papers=20)
+
+    record_decision(tmp_path, stage="retained", action="refine")
+    rank_corpus(tmp_path, to_tier="evidence")
+    record_decision(tmp_path, stage="evidence", action="refine")
+    rank_corpus(tmp_path, to_tier="core")
+    record_decision(tmp_path, stage="core", action="continue")
 
     result = prepare_final_landscape_packet(tmp_path, max_papers=20)
     packet = json.loads(Path(result["packet_file"]).read_text(encoding="utf-8"))
