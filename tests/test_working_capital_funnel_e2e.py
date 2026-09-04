@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from litreview_construct import campaign, finalize, graph_resilient, resilient, triage
+from litreview_construct.corpus import rank_corpus, record_decision
 from litreview_construct.intent import accept_intent, set_intent
 from litreview_construct.project import init_project
 
@@ -312,6 +313,15 @@ def test_working_capital_discovery_funnel_end_to_end(tmp_path: Path, monkeypatch
     _save_review(root, focused=True)
     finished = campaign.record_discovery_decision(root, action="finish")
     assert finished["status"] == "complete"
+
+    # New post-triage corpus funnel before deep landscape/evidence work.
+    record_decision(root, stage="retained", action="refine")
+    evidence = rank_corpus(root, to_tier="evidence")
+    assert evidence["selected_records"] > 0
+    record_decision(root, stage="evidence", action="refine")
+    core = rank_corpus(root, to_tier="core")
+    assert core["selected_records"] > 0
+    record_decision(root, stage="core", action="continue")
 
     final = finalize.prepare_final_landscape_packet(root, max_papers=80)
     packet = json.loads(Path(final["packet_file"]).read_text(encoding="utf-8"))
