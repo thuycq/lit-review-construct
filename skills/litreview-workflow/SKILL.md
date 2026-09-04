@@ -12,7 +12,7 @@ metadata:
 
 ## Product boundary
 
-Help the researcher construct the literature behind a study: Research Intent, discovery, Research Landscape, source-disciplined Evidence Map, Research Direction, Literature Review Blueprint, and bounded Working Draft fragments. Never turn the Working Draft into a seamless submission-ready literature review. The researcher verifies sources, chooses citations, resolves scholarly judgments, and authors final prose.
+Help the researcher construct the literature behind a study: Research Intent, discovery, corpus refinement, Research Landscape, source-disciplined Evidence Map, Research Direction, Literature Review Blueprint, and bounded Working Draft fragments. Never turn the Working Draft into a seamless submission-ready literature review. The researcher verifies sources, chooses citations, resolves scholarly judgments, and authors final prose.
 
 ## Activation and resume
 
@@ -20,23 +20,40 @@ Help the researcher construct the literature behind a study: Research Intent, di
 - New project: initialize only after an explicit researcher request to start Lit Review Construct.
 - An unspecified continuation begins with `lrc next . --json`.
 - Local state is authoritative; do not reconstruct project state from chat history.
+- On macOS, if a GUI host cannot resolve `lrc`, retry with `$HOME/.local/bin/lrc` before asking the researcher to repair the installation.
 
 ## Checkpoint rule
 
-A human checkpoint is for a **genuine scholarly decision**, not a technical operation.
+A human checkpoint is for a **genuine scholarly or corpus-strategy decision**, not routine technical work.
 
 Stop when `human_checkpoint_required: true`. Never silently choose:
 - Research Intent/scope;
 - whether seed literature exists when the project asks;
 - scholarly focus/refocus or scope change;
 - whether discovery is sufficient when the navigator returns a decision checkpoint;
+- whether to acquire the whole current Retained/Evidence Candidate/Core corpus locally or continue narrowing/continue with current coverage;
 - Research Direction;
 - Blueprint acceptance;
 - researcher interpretation when evidence genuinely conflicts.
 
-Do **not** create checkpoints for deduplication, batching, progressive triage, citation chaining, OA resolution, Evidence Map refresh, consistency QA, claim-strength QA, reference export, Word export, or final package materialization. Follow non-human `next_action` results automatically and call `lrc next . --json` again until a genuine checkpoint or meaningful artifact is reached.
+Do **not** create additional checkpoints for deduplication, batching, progressive triage, citation chaining, local OA-resolution batches after the researcher has chosen acquisition, Evidence Map refresh, consistency QA, claim-strength QA, reference export, Word export, or final package materialization. Follow non-human `next_action` results automatically and call `lrc next . --json` again until a genuine checkpoint or meaningful artifact is reached.
 
 In particular, `next_action: refine` is a structural beta action: priority triage → citation chaining from core seeds → triage graph additions → rebuild narrowing review. It is not researcher approval and should run without asking the researcher to type “refine” after every round.
+
+## Corpus refinement contract
+
+After completed discovery/triage, do not jump directly from Retained Papers to deep evidence mapping. The required funnel for new/rebuilt landscapes is:
+
+`Retained Papers -> Evidence Candidates -> Core Papers`
+
+Keep the meanings distinct:
+- Retained = not excluded after title/abstract triage.
+- Evidence Candidate = prioritized as likely to provide useful evidence.
+- Core Paper = prioritized for deep reading/evidence construction.
+
+At each corpus checkpoint, explain the current count and full-text coverage and let the researcher choose the acquisition/refinement option returned by the runtime. Local full-text acquisition runs through the installed Python runtime and does not require one AI interaction per paper.
+
+Ranking/relevance scoring must not reduce to citation count. Preserve research-intent relevance, evidence potential, bibliographic/source quality, theoretical/methodological importance when represented by available metadata, recency where appropriate, anchor value, and research-stream coverage.
 
 ## Researcher-facing mode
 
@@ -69,7 +86,8 @@ Use the skill named by `lrc next`:
 - `litreview-start` — Intent/new project;
 - `litreview-seeds` — researcher papers;
 - `litreview-discover` — discovery, technical refinement, Research Landscape;
-- `litreview-fulltext` — lawful OA coverage;
+- `litreview-corpus` — Retained → Evidence Candidates → Core Papers and acquisition strategy checkpoints;
+- `litreview-fulltext` — lawful local OA acquisition for the selected corpus tier;
 - `litreview-map` — Evidence Map;
 - `litreview-direction` — candidate directions + researcher choice;
 - `litreview-blueprint` — evidence-linked Blueprint;
