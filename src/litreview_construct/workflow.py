@@ -5,6 +5,7 @@ from pathlib import Path
 
 import yaml
 
+from .corpus import refinement_next_step
 from .navigator import discovery_next_step
 from .project import PROJECT_DIR
 
@@ -57,9 +58,10 @@ def _stage(state: dict[str, object], name: str) -> str:
 def project_next_step(root: Path) -> dict[str, object]:
     """Return the next structural step for the complete Lit Review Construct workflow.
 
-    State routing never decides scholarly scope, focus, discovery sufficiency, research direction,
-    or Blueprint acceptance for the researcher. Technical refinement, OA coverage, QA, and package
-    preparation should not manufacture extra human checkpoints.
+    State routing never decides scholarly scope, focus, discovery sufficiency, corpus-acquisition
+    strategy, research direction, or Blueprint acceptance for the researcher. Technical ranking,
+    OA acquisition after a researcher choice, QA, and package preparation should not manufacture
+    extra human checkpoints.
     """
     root, project, state = _load(root)
 
@@ -70,21 +72,31 @@ def project_next_step(root: Path) -> dict[str, object]:
             "stage": "research_intent",
             "skill": "litreview-start",
             "human_checkpoint_required": True,
-            "reason": "The Research Intent must be completed and explicitly accepted before discovery proceeds.",
+            "reason": (
+                "The Research Intent must be completed and explicitly accepted before discovery "
+                "proceeds."
+            ),
             "commands": ["lrc intent show . --json"],
         }
 
     seed = _stage(state, "seed_literature")
     seed_decision = root / PROJECT_DIR / "data" / "seed_decision.json"
     if seed != "accepted" or not seed_decision.exists():
-        user_seeds = [row for row in _jsonl(root, "data/papers.jsonl") if row.get("source_origin") == "user_seed"]
+        user_seeds = [
+            row
+            for row in _jsonl(root, "data/papers.jsonl")
+            if row.get("source_origin") == "user_seed"
+        ]
         if user_seeds:
             return {
                 "next_action": "review_seed_inventory",
                 "stage": "seed_literature",
                 "skill": "litreview-seeds",
                 "human_checkpoint_required": True,
-                "reason": "Researcher-provided papers are indexed but the seed inventory has not yet been acknowledged. Acknowledgement does not imply relevance.",
+                "reason": (
+                    "Researcher-provided papers are indexed but the seed inventory has not yet "
+                    "been acknowledged. Acknowledgement does not imply relevance."
+                ),
                 "indexed_seed_records": len(user_seeds),
                 "commands": ["lrc seed accept ."],
             }
@@ -93,8 +105,14 @@ def project_next_step(root: Path) -> dict[str, object]:
             "stage": "seed_literature",
             "skill": "litreview-seeds",
             "human_checkpoint_required": True,
-            "reason": "The workflow must record whether the researcher already has related papers before broad discovery.",
-            "researcher_prompt": "Do you already have papers related to this research? If yes, place them in papers/user_uploads/ or point me to the folder.",
+            "reason": (
+                "The workflow must record whether the researcher already has related papers "
+                "before broad discovery."
+            ),
+            "researcher_prompt": (
+                "Do you already have papers related to this research? If yes, place them in "
+                "papers/user_uploads/ or point me to the folder."
+            ),
             "commands": [
                 "lrc seed scan .",
                 "lrc seed scan . --source <external-folder>",
@@ -112,6 +130,18 @@ def project_next_step(root: Path) -> dict[str, object]:
         discovery = discovery_next_step(root)
         return {**discovery, "stage": "literature_discovery", "skill": "litreview-discover"}
 
+    # Post-triage corpus refinement is a required bridge between retained records and deep
+    # evidence work. The researcher decides at each tier whether to acquire the whole current
+    # corpus locally or continue narrowing first. Once a choice is made, ranking/acquisition is
+    # technical and may proceed automatically.
+    refinement = refinement_next_step(root)
+    if refinement.get("next_action") != "proceed_to_landscape":
+        return {
+            **refinement,
+            "stage": "literature_discovery",
+            "skill": str(refinement.get("skill") or "litreview-corpus"),
+        }
+
     landscape_status = _stage(state, "literature_discovery")
     landscape_file = root / PROJECT_DIR / "data" / "landscape.json"
     if not landscape_file.exists() or landscape_status in {"needs_refresh", "in_progress"}:
@@ -120,7 +150,10 @@ def project_next_step(root: Path) -> dict[str, object]:
             "stage": "literature_discovery",
             "skill": "litreview-discover",
             "human_checkpoint_required": False,
-            "reason": "Discovery is researcher-finished; rebuild the Research Landscape from retained triaged literature.",
+            "reason": (
+                "Discovery is researcher-finished and the Core Paper corpus is selected; rebuild "
+                "the Research Landscape from the refined literature set."
+            ),
             "commands": ["lrc discover prepare-landscape . --json"],
         }
 
@@ -129,23 +162,10 @@ def project_next_step(root: Path) -> dict[str, object]:
     fulltext_resolution_file = root / PROJECT_DIR / "data" / "fulltext_resolution.json"
     evidence_map = _json(evidence_file)
     fulltext_resolution = _json(fulltext_resolution_file)
-    oa_coverage_complete = bool(fulltext_resolution and fulltext_resolution.get("coverage_complete"))
 
-    # Beta: OA is a resumable retained-literature coverage pass. max_papers is a batch size,
-    # not a product cap. Complete this technical pass before relying on the Evidence Map.
-    if not oa_coverage_complete:
-        return {
-            "next_action": "resolve_priority_full_text",
-            "stage": "evidence_mapping",
-            "skill": "litreview-fulltext",
-            "human_checkpoint_required": False,
-            "reason": "Resolve lawful OA availability for retained/priority working literature in bounded batches before relying on abstract-heavy Evidence Mapping.",
-            "commands": ["lrc fulltext acquire . --max-papers 100 --json"],
-            "coverage_complete": False,
-        }
-
-    # A coverage report can be overwritten by a final zero-item batch. Compare Evidence Map time
-    # to the cumulative latest OA acquisition recorded on paper provenance instead of batch count.
+    # Compare Evidence Map time to the cumulative latest local OA acquisition. A download makes
+    # full text available; it does not itself mean AI checked the paper or the researcher verified
+    # it. Refresh affected evidence when newer PDFs appear.
     if evidence_map and fulltext_resolution:
         evidence_saved_at = str(evidence_map.get("saved_at") or "")
         latest_oa = str(fulltext_resolution.get("latest_toolkit_oa_acquired_at") or "")
@@ -155,18 +175,31 @@ def project_next_step(root: Path) -> dict[str, object]:
                 "stage": "evidence_mapping",
                 "skill": "litreview-map",
                 "human_checkpoint_required": False,
-                "reason": "Lawful OA full text was acquired after the current Evidence Map. Re-check affected evidence against the PDFs before downstream claims are treated as current.",
+                "reason": (
+                    "Lawful OA full text was acquired after the current Evidence Map. Re-check "
+                    "affected evidence against the PDFs before downstream claims are treated as "
+                    "current."
+                ),
                 "commands": ["lrc evidence prepare . --json"],
-                "toolkit_oa_full_text_records": int(fulltext_resolution.get("toolkit_oa_full_text_records") or 0),
+                "toolkit_oa_full_text_records": int(
+                    fulltext_resolution.get("toolkit_oa_full_text_records") or 0
+                ),
             }
 
-    if not evidence_file.exists() or evidence_status in {"not_started", "in_progress", "needs_refresh", "blocked"}:
+    if (
+        not evidence_file.exists()
+        or evidence_status in {"not_started", "in_progress", "needs_refresh", "blocked"}
+    ):
         return {
             "next_action": "construct_evidence_map",
             "stage": "evidence_mapping",
             "skill": "litreview-map",
             "human_checkpoint_required": False,
-            "reason": "A current Research Landscape and OA coverage pass exist; construct the source-disciplined Evidence Map before gap/direction reasoning.",
+            "reason": (
+                "A current Research Landscape and Core Paper corpus are available. Construct the "
+                "source-disciplined Evidence Map using full text where available and preserving "
+                "abstract-only limitations where it is not."
+            ),
             "commands": ["lrc evidence prepare . --json"],
         }
 
@@ -178,7 +211,10 @@ def project_next_step(root: Path) -> dict[str, object]:
             "stage": "research_direction",
             "skill": "litreview-direction",
             "human_checkpoint_required": True,
-            "reason": "Candidate Research Directions are ready. The researcher must select, modify, combine, or reject them.",
+            "reason": (
+                "Candidate Research Directions are ready. The researcher must select, modify, "
+                "combine, or reject them."
+            ),
             "commands": ["lrc direction show ."],
         }
     if direction_status != "accepted" or not selected_direction.exists():
@@ -187,7 +223,10 @@ def project_next_step(root: Path) -> dict[str, object]:
             "stage": "research_direction",
             "skill": "litreview-direction",
             "human_checkpoint_required": False,
-            "reason": "Landscape and Evidence Map are available; AI may propose provisional directions, but must stop before choosing one.",
+            "reason": (
+                "Landscape and Evidence Map are available; AI may propose provisional directions, "
+                "but must stop before choosing one."
+            ),
             "commands": ["lrc direction prepare . --json"],
         }
 
@@ -199,7 +238,10 @@ def project_next_step(root: Path) -> dict[str, object]:
             "stage": "literature_review_blueprint",
             "skill": "litreview-blueprint",
             "human_checkpoint_required": True,
-            "reason": "The quality-checked Literature Review Blueprint is ready for researcher review. It must not be silently accepted or expanded into a final review.",
+            "reason": (
+                "The quality-checked Literature Review Blueprint is ready for researcher review. "
+                "It must not be silently accepted or expanded into a final review."
+            ),
             "commands": ["lrc blueprint show .", "lrc blueprint accept ."],
         }
     if blueprint_status != "accepted" or not blueprint_file.exists():
@@ -208,7 +250,10 @@ def project_next_step(root: Path) -> dict[str, object]:
             "stage": "literature_review_blueprint",
             "skill": "litreview-blueprint",
             "human_checkpoint_required": False,
-            "reason": "A researcher-selected direction exists; construct and self-check the evidence-linked review architecture without writing the final review.",
+            "reason": (
+                "A researcher-selected direction exists; construct and self-check the evidence-"
+                "linked review architecture without writing the final review."
+            ),
             "commands": ["lrc blueprint prepare . --json"],
         }
 
@@ -219,7 +264,10 @@ def project_next_step(root: Path) -> dict[str, object]:
             "stage": "researcher_handoff",
             "skill": "litreview-draft",
             "human_checkpoint_required": False,
-            "reason": "The Blueprint is accepted. Construct bounded evidence-linked researcher fragments, run draft-safety QA, and preserve verification states.",
+            "reason": (
+                "The Blueprint is accepted. Construct bounded evidence-linked researcher "
+                "fragments, run draft-safety QA, and preserve verification states."
+            ),
             "commands": ["lrc draft prepare . --json"],
         }
 
@@ -227,7 +275,8 @@ def project_next_step(root: Path) -> dict[str, object]:
     researcher_package = _json(root / PROJECT_DIR / "data" / "researcher_package.json")
     package_stale = (
         researcher_package is None
-        or str(researcher_package.get("generated_at") or "") < str(working_draft.get("saved_at") or "")
+        or str(researcher_package.get("generated_at") or "")
+        < str(working_draft.get("saved_at") or "")
     )
     if package_stale:
         return {
@@ -235,7 +284,11 @@ def project_next_step(root: Path) -> dict[str, object]:
             "stage": "researcher_handoff",
             "skill": "litreview-workflow",
             "human_checkpoint_required": False,
-            "reason": "The Working Draft is ready. Materialize the researcher-facing paper library, canonical references, EndNote export, audit manifest, and Word handoff before stopping.",
+            "reason": (
+                "The Working Draft is ready. Materialize the researcher-facing paper library, "
+                "canonical references, EndNote export, audit manifest, and Word handoff before "
+                "stopping."
+            ),
             "commands": ["lrc package prepare . --json"],
         }
 
@@ -244,8 +297,15 @@ def project_next_step(root: Path) -> dict[str, object]:
         "stage": "researcher_handoff",
         "skill": "litreview-workflow",
         "human_checkpoint_required": True,
-        "reason": "The accepted Blueprint, bounded Working Draft, paper library, canonical reference exports, and Word handoff are ready. The researcher now verifies sources and authors the final literature review.",
-        "researcher_responsibility": "Verify sources and citations, resolve provisional evidence, rewrite/approve fragments, and author the final literature-review text.",
+        "reason": (
+            "The accepted Blueprint, bounded Working Draft, paper library, canonical reference "
+            "exports, and Word handoff are ready. The researcher now verifies sources and authors "
+            "the final literature review."
+        ),
+        "researcher_responsibility": (
+            "Verify sources and citations, resolve provisional evidence, rewrite/approve "
+            "fragments, and author the final literature-review text."
+        ),
         "researcher_package": researcher_package,
         "optional_commands": [
             "lrc ai-use summary . --json",
