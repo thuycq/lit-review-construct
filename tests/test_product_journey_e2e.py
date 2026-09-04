@@ -5,6 +5,7 @@ from docx import Document
 
 from litreview_construct.ai_use import generate_ai_use_statement
 from litreview_construct.blueprint import accept_blueprint, save_blueprint
+from litreview_construct.corpus import rank_corpus, record_decision
 from litreview_construct.direction import apply_direction_decision, save_direction_candidates
 from litreview_construct.draft_support import save_working_draft
 from litreview_construct.evidence import save_evidence_map
@@ -112,9 +113,27 @@ def test_researcher_journey_reaches_researcher_writing_pack_not_final_review(tmp
     state["stages"]["literature_discovery"]["status"] = "accepted"
     state["current_stage"] = "literature_discovery"
     _write_json(state_file, state)
+
+    # 3. Post-triage corpus refinement: researcher chooses to narrow before any bulk download.
+    retained_step = project_next_step(tmp_path)
+    assert retained_step["next_action"] == "retained_corpus_checkpoint"
+    assert retained_step["human_checkpoint_required"] is True
+    record_decision(tmp_path, stage="retained", action="refine")
+    assert project_next_step(tmp_path)["next_action"] == "rank_evidence_candidates"
+    assert rank_corpus(tmp_path, to_tier="evidence")["selected_records"] == 3
+
+    evidence_step = project_next_step(tmp_path)
+    assert evidence_step["next_action"] == "evidence_candidate_checkpoint"
+    record_decision(tmp_path, stage="evidence", action="refine")
+    assert project_next_step(tmp_path)["next_action"] == "rank_core_papers"
+    assert rank_corpus(tmp_path, to_tier="core")["selected_records"] == 3
+
+    core_step = project_next_step(tmp_path)
+    assert core_step["next_action"] == "core_paper_checkpoint"
+    record_decision(tmp_path, stage="core", action="continue")
     assert project_next_step(tmp_path)["next_action"] == "construct_current_research_landscape"
 
-    # 3. Research Landscape.
+    # 4. Research Landscape.
     landscape_file = tmp_path / "landscape_submission.json"
     _write_json(
         landscape_file,
@@ -156,22 +175,7 @@ def test_researcher_journey_reaches_researcher_writing_pack_not_final_review(tmp
     )
     assert save_landscape(tmp_path, landscape_file)["status"] == "ready_for_review"
 
-    # 4. OA resolution is a completed coverage pass, not a one-batch product cap.
-    oa_step = project_next_step(tmp_path)
-    assert oa_step["next_action"] == "resolve_priority_full_text"
-    _write_json(
-        state_root / "data" / "fulltext_resolution.json",
-        {
-            "schema_version": 1,
-            "selected_papers": 3,
-            "downloaded": 0,
-            "unresolved_or_closed": 3,
-            "coverage_complete": True,
-            "toolkit_oa_full_text_records": 0,
-            "remaining_resolution_candidates": 0,
-            "policy_note": "Deterministic E2E fixture; no network call.",
-        },
-    )
+    # Full-text acquisition is optional at the corpus checkpoints; continuing does not force it.
     assert project_next_step(tmp_path)["next_action"] == "construct_evidence_map"
 
     # 5. Evidence Map remains abstract-explicit and provisional.
