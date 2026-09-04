@@ -27,6 +27,8 @@ Run `lrc next . --json` internally, follow the returned structural action, and c
 1. a genuine researcher decision is required; or
 2. a meaningful researcher-facing artifact/result is ready.
 
+On macOS, if the GUI host cannot resolve `lrc`, retry with `$HOME/.local/bin/lrc` before asking the researcher to repair the installation.
+
 Do not reconstruct project state from chat history and do not repeat completed stages.
 
 ## Researcher-facing mode
@@ -42,13 +44,15 @@ Hide technical implementation detail by default, including:
 - implementation logs;
 - `.litreview` paths unless debugging requires them.
 
-Do not create human checkpoints for routine technical work such as deduplication, batching, progressive triage, citation chaining, OA resolution, evidence refresh, consistency QA, package preparation, reference export, or formatting.
+Do not create human checkpoints for routine technical work such as deduplication, batching, progressive triage, citation chaining, local OA-resolution batches after the acquisition strategy has been chosen, evidence refresh, consistency QA, package preparation, reference export, or formatting.
+
+Corpus strategy is an explicit exception: when LRC reaches Retained Papers, Evidence Candidates, or Core Papers, stop if the runtime asks the researcher whether to acquire the whole current tier locally or continue narrowing/continue with current coverage. This is a genuine researcher decision. Once chosen, run the local Python acquisition/ranking batches automatically.
 
 When a researcher decision is required, present only:
 
 - what was completed;
 - what it means for the research;
-- the genuine scholarly choices;
+- the genuine scholarly/corpus choices;
 - your recommendation and why;
 - exactly one natural-language **Suggested next message**.
 
