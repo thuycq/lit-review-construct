@@ -1,8 +1,14 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-EXPECTED_VERSION="0.1.0b2"
+EXPECTED_VERSION="0.1.0b3"
+INSTALL_ROOT="$HOME/Library/Application Support/LiteratureReviewConstruct"
+RUNTIME_ROOT="$INSTALL_ROOT/runtime"
+LAUNCHER_DIR="$HOME/.local/bin"
+LAUNCHER="$LAUNCHER_DIR/lrc"
+LOG_ROOT="$HOME/Library/Logs/LiteratureReviewConstruct"
+LOG_FILE="$LOG_ROOT/install.log"
 
 if [[ "$(uname -s)" != "Darwin" ]]; then
   echo "This installer is intended for macOS."
@@ -10,9 +16,30 @@ if [[ "$(uname -s)" != "Darwin" ]]; then
   exit 1
 fi
 
-echo "Literature Review Construct installer"
+mkdir -p "$INSTALL_ROOT" "$LAUNCHER_DIR" "$LOG_ROOT"
+touch "$LOG_FILE"
+exec > >(tee -a "$LOG_FILE") 2>&1
+
+on_error() {
+  local code=$?
+  echo ""
+  echo "Installation did not complete."
+  echo "Diagnostic log: $LOG_FILE"
+  echo "You can retry from Terminal with:"
+  echo "  bash \"$REPO_ROOT/install.sh\""
+  exit "$code"
+}
+trap on_error ERR
+
+echo ""
+echo "Literature Review Construct — macOS installer"
 echo "Repository: $REPO_ROOT"
 echo "Runtime target: $EXPECTED_VERSION"
+echo "macOS: $(sw_vers -productVersion 2>/dev/null || echo unknown)"
+echo "Architecture: $(uname -m)"
+echo "Shell: ${SHELL:-unknown}"
+echo "Log: $LOG_FILE"
+echo ""
 
 resolve_uv() {
   if command -v uv >/dev/null 2>&1; then
@@ -23,7 +50,7 @@ resolve_uv() {
     echo "$HOME/.local/bin/uv"
     return
   fi
-  echo "uv not found. Installing uv..." >&2
+  echo "Preparing the local Python runtime manager..." >&2
   curl -LsSf https://astral.sh/uv/install.sh | sh
   if command -v uv >/dev/null 2>&1; then
     command -v uv
@@ -31,15 +58,36 @@ resolve_uv() {
     echo "$HOME/.local/bin/uv"
   else
     echo "uv installation completed but uv could not be located." >&2
-    exit 1
+    return 1
   fi
 }
 
 UV="$(resolve_uv)"
-echo "Using uv: $UV"
+echo "Runtime manager: $UV"
 
+# LRC owns a private Python runtime. The lecturer does not need Homebrew, PowerShell,
+# VS Code, or a manually managed Python installation.
 "$UV" python install 3.12
-"$UV" tool install --force --reinstall --python 3.12 "$REPO_ROOT"
+rm -rf "$RUNTIME_ROOT"
+"$UV" venv --python 3.12 "$RUNTIME_ROOT"
+"$UV" pip install --python "$RUNTIME_ROOT/bin/python" --reinstall "$REPO_ROOT"
+
+cat > "$LAUNCHER" <<EOF_LAUNCHER
+#!/bin/sh
+exec "$RUNTIME_ROOT/bin/lrc" "\$@"
+EOF_LAUNCHER
+chmod +x "$LAUNCHER"
+export PATH="$LAUNCHER_DIR:$PATH"
+
+ZPROFILE="$HOME/.zprofile"
+if ! grep -q "LRC-PATH:BEGIN" "$ZPROFILE" 2>/dev/null; then
+  cat >> "$ZPROFILE" <<'EOF_PATH'
+
+# LRC-PATH:BEGIN
+export PATH="$HOME/.local/bin:$PATH"
+# LRC-PATH:END
+EOF_PATH
+fi
 
 CANONICAL_SKILLS="$REPO_ROOT/skills"
 SKILL_ROOTS=(
@@ -98,43 +146,40 @@ if [[ -f "$REPO_ROOT/commands/gemini/global-context.md" ]]; then
   fi
 fi
 
-INSTALL_ROOT="$HOME/Library/Application Support/LiteratureReviewConstruct"
-mkdir -p "$INSTALL_ROOT"
-
-LRC_PATH="$(command -v lrc || true)"
-INSTALLED_VERSION=""
-if [[ -n "$LRC_PATH" ]]; then
-  INSTALLED_VERSION="$("$LRC_PATH" version 2>/dev/null || true)"
+INSTALLED_VERSION="$("$LAUNCHER" version)"
+if [[ "$INSTALLED_VERSION" != "$EXPECTED_VERSION" ]]; then
+  echo "Installed version mismatch: expected $EXPECTED_VERSION, got $INSTALLED_VERSION" >&2
+  exit 1
 fi
 
-cat > "$INSTALL_ROOT/install-manifest.json" <<EOF
+cat > "$INSTALL_ROOT/install-manifest.json" <<EOF_MANIFEST
 {
   "installed_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
   "source_repository": "$REPO_ROOT",
   "expected_version": "$EXPECTED_VERSION",
   "installed_version": "$INSTALLED_VERSION",
-  "resolved_lrc": "$LRC_PATH",
-  "python": "3.12",
+  "platform": "macOS",
+  "architecture": "$(uname -m)",
+  "runtime_python": "$RUNTIME_ROOT/bin/python",
+  "launcher": "$LAUNCHER",
+  "log": "$LOG_FILE",
   "hosts": ["codex", "opencode", "claude-code", "cursor", "windsurf", "github-copilot", "cline", "gemini-cli"]
 }
-EOF
+EOF_MANIFEST
+
+trap - ERR
 
 echo ""
-echo "Installed Literature Review Construct core and host adapters for macOS."
-echo "Supported host adapters:"
-echo "  - Codex"
-echo "  - OpenCode"
-echo "  - Claude Code"
-echo "  - Cursor"
-echo "  - Windsurf"
-echo "  - GitHub Copilot"
-echo "  - Cline"
-echo "  - Gemini CLI"
-if [[ -n "$LRC_PATH" ]]; then
-  echo "Resolved lrc: $LRC_PATH"
-  echo "Installed runtime: $INSTALLED_VERSION"
-fi
+echo "✓ Literature Review Construct installed successfully."
+echo "Installed runtime: $INSTALLED_VERSION"
+echo "Private Python runtime: $RUNTIME_ROOT"
+echo "LRC launcher: $LAUNCHER"
+echo "Diagnostic log: $LOG_FILE"
 echo ""
-echo "Open a dedicated research folder in your preferred AI host and say:"
+echo "No Homebrew, PowerShell, VS Code, or manual Python setup is required."
+echo "Close and reopen Codex/OpenCode if it was already running."
+echo "Then open a dedicated research folder and say:"
 echo "  Start a new Literature Review Construct project in this folder."
-echo "OpenCode, Claude Code, and Gemini CLI also have an /lr shortcut."
+echo ""
+echo "If a macOS AI app cannot find 'lrc' after restart, LRC is also available at:"
+echo "  $LAUNCHER"
