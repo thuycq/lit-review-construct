@@ -6,6 +6,7 @@ from pathlib import Path
 import typer
 
 from .app_cli import fulltext_app
+from .corpus import pending_acquisition_ids, tier_coverage
 from .oa_coverage import (
     finalize_oa_report,
     missing_fulltext_queue,
@@ -23,8 +24,16 @@ def fulltext_acquire(
         None,
         "--paper-id",
         help=(
-            "Priority paper_id; repeatable. Without explicit IDs, continue the retained-literature "
-            "OA coverage pass, including retryable resolver failures."
+            "Priority paper_id; repeatable. Without explicit IDs or --tier, continue the retained-"
+            "literature OA coverage pass, including retryable resolver failures."
+        ),
+    ),
+    tier: str | None = typer.Option(
+        None,
+        "--tier",
+        help=(
+            "Acquire the selected corpus tier: retained, evidence, or core. This is the preferred "
+            "mode after a corpus-refinement checkpoint."
         ),
     ),
     max_papers: int = typer.Option(100, "--max-papers", min=1, max=100),
@@ -36,8 +45,18 @@ def fulltext_acquire(
     max_pdf_mb: int = typer.Option(50, "--max-pdf-mb", min=1, max=200),
     json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
 ) -> None:
+    if paper_id and tier:
+        typer.echo("Use either --paper-id or --tier, not both.", err=True)
+        raise typer.Exit(code=1)
+
     try:
-        selected = paper_id if paper_id else next_oa_batch(path, max_papers=max_papers)
+        if tier:
+            selected = pending_acquisition_ids(path, tier, max_papers=max_papers)
+        elif paper_id:
+            selected = paper_id
+        else:
+            selected = next_oa_batch(path, max_papers=max_papers)
+
         if not selected:
             result = finalize_oa_report(
                 path,
@@ -65,6 +84,7 @@ def fulltext_acquire(
                 max_pdf_mb=max_pdf_mb,
             )
             result = finalize_oa_report(path, result)
+
         library = (
             sync_acquired_oa_library(path)
             if not resolve_only
@@ -75,6 +95,11 @@ def fulltext_acquire(
             }
         )
         result["researcher_library"] = library
+        if tier:
+            result["corpus_tier"] = tier
+            result["tier_coverage"] = tier_coverage(path, tier)
+            result["local_runtime"] = "python"
+            result["ai_model_calls_inside_acquisition"] = 0
     except (FileNotFoundError, ValueError, OSError) as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=1) from exc
@@ -85,17 +110,33 @@ def fulltext_acquire(
 
     typer.echo(f"Priority papers checked this batch: {result['selected_papers']}")
     typer.echo(f"OA PDFs downloaded this batch: {result['downloaded']}")
-    typer.echo(
-        f"Remaining retained records to resolve: {result.get('remaining_resolution_candidates', 0)}"
-    )
-    if result.get("retryable_resolution_candidates", 0):
+    if tier:
+        coverage = result["tier_coverage"]
+        typer.echo(f"Corpus tier: {coverage['tier']}")
         typer.echo(
-            f"Automatic resolver retries pending: {result.get('retryable_resolution_candidates', 0)}"
+            f"Current-tier full text: {coverage['local_full_text']} / "
+            f"{coverage['selected_records']}"
         )
-    typer.echo(
-        f"Missing full text requiring researcher action: {result.get('missing_fulltext_records', 0)}"
-    )
-    typer.echo(f"Coverage complete: {result.get('coverage_complete', False)}")
+        typer.echo(
+            f"Automatic resolution remaining in tier: "
+            f"{coverage['automatic_resolution_pending']}"
+        )
+        typer.echo("Local runtime: Python; no AI model call is made per paper by this command.")
+    else:
+        typer.echo(
+            f"Remaining retained records to resolve: "
+            f"{result.get('remaining_resolution_candidates', 0)}"
+        )
+        if result.get("retryable_resolution_candidates", 0):
+            typer.echo(
+                f"Automatic resolver retries pending: "
+                f"{result.get('retryable_resolution_candidates', 0)}"
+            )
+        typer.echo(
+            f"Missing full text requiring researcher action: "
+            f"{result.get('missing_fulltext_records', 0)}"
+        )
+        typer.echo(f"Coverage complete: {result.get('coverage_complete', False)}")
     typer.echo("Researcher paper library: papers/full_text (DOI-based filenames where available)")
     typer.echo("Missing-full-text queue: .litreview/data/missing_fulltext.json")
     if not result.get("unpaywall_enabled"):
